@@ -42,11 +42,15 @@ def _labeled_field(label_text: str, value_widget: QWidget) -> QWidget:
 
 def _hairline(vertical: bool = False) -> QFrame:
     line = QFrame()
-    line.setProperty("role", "hairline")
     if vertical:
+        # Vertical dividers get their own role: the "hairline" QSS rule
+        # clamps max-height/min-height to 1px, which would collapse a
+        # vertical divider's setFixedHeight(30) into an invisible dot.
+        line.setProperty("role", "hairline-v")
         line.setFixedWidth(1)
         line.setFixedHeight(30)
     else:
+        line.setProperty("role", "hairline")
         line.setFixedHeight(1)
     return line
 
@@ -137,6 +141,9 @@ class MainWindow(QMainWindow):
         self.generate_button.setCursor(Qt.PointingHandCursor)
         layout.addWidget(self.generate_button)
 
+        # Connected here (rather than after _build_main_area) relies on
+        # _on_style_changed only firing on user interaction, since
+        # self.style_panel doesn't exist yet at this point in __init__.
         self.style_combo.currentIndexChanged.connect(self._on_style_changed)
         return rail
 

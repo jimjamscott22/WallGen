@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame
 
 from wallgen.ui import theme
 from wallgen.ui.main_window import MainWindow
@@ -56,3 +57,16 @@ def test_reroll_dial_changes_the_seed(qtbot):
     original_seed = window.seed_field.seed()
     qtbot.mouseClick(window.reroll_dial, Qt.LeftButton)
     assert window.seed_field.seed() != original_seed
+
+
+def test_control_rail_vertical_dividers_are_not_height_clamped(qtbot):
+    window = MainWindow()
+    qtbot.addWidget(window)
+    vertical_dividers = [
+        frame
+        for frame in window.findChildren(QFrame)
+        if frame.property("role") == "hairline-v"
+    ]
+    assert len(vertical_dividers) == 3
+    for divider in vertical_dividers:
+        assert divider.maximumHeight() >= 30

@@ -68,6 +68,12 @@ def stylesheet() -> str:
         min-height: 1px;
         border: none;
     }}
+    QFrame[role="hairline-v"] {{
+        background: {HAIRLINE};
+        min-width: 1px;
+        max-width: 1px;
+        border: none;
+    }}
     QFrame[role="panel"] {{
         background: {BG_PANEL};
         border: 1px solid {HAIRLINE};
