@@ -41,3 +41,24 @@ def test_library_thumbnail_exposes_style_label(qtbot):
     thumb = LibraryThumbnail("PCB", "#45E0E8", "#0E1C24")
     qtbot.addWidget(thumb)
     assert thumb.style_label() == "PCB"
+
+
+def test_monitor_chip_role_reflects_active_state(qtbot):
+    inactive = MonitorChip("DELL U2719", "2560 x 1440", active=False)
+    qtbot.addWidget(inactive)
+    assert inactive.property("role") == "chip"
+
+    active = MonitorChip("All", "", active=True)
+    qtbot.addWidget(active)
+    assert active.property("role") == "chip-active"
+
+
+def test_monitor_chip_suppresses_empty_resolution(qtbot):
+    from PySide6.QtWidgets import QLabel
+
+    chip = MonitorChip("All", "", active=True)
+    qtbot.addWidget(chip)
+    value_labels = [l for l in chip.findChildren(QLabel) if l.property("role") == "value"]
+    field_labels = [l for l in chip.findChildren(QLabel) if l.property("role") == "field-label"]
+    assert len(value_labels) == 1  # just the name
+    assert len(field_labels) == 0  # no resolution label when resolution is empty

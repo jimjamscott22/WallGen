@@ -23,6 +23,11 @@ def test_stylesheet_uses_the_tokens():
     assert "QPushButton#generate" in css
 
 
+def test_stylesheet_styles_the_combo_box_popup():
+    css = theme.stylesheet()
+    assert "QComboBox QAbstractItemView" in css
+
+
 def test_colors_dict_matches_constants():
     assert theme.COLORS["copper"] == theme.COPPER
     assert theme.COLORS["verdigris"] == theme.VERDIGRIS

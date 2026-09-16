@@ -111,6 +111,14 @@ def stylesheet() -> str:
         border: none;
         width: 16px;
     }}
+    QComboBox QAbstractItemView {{
+        background: {BG_PANEL};
+        color: {TEXT_PRIMARY};
+        border: 1px solid {HAIRLINE};
+        selection-background-color: {COPPER};
+        selection-color: {BG_WINDOW};
+        outline: none;
+    }}
     QPushButton#generate {{
         background: {COPPER};
         color: {BG_WINDOW};

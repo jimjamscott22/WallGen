@@ -44,6 +44,12 @@ def test_library_strip_matches_mock_data(qtbot):
     assert len(window.library_thumbnails) == len(MOCK_LIBRARY)
 
 
+def test_window_opens_on_the_style_its_combo_shows(qtbot):
+    window = MainWindow()
+    qtbot.addWidget(window)
+    assert window.style_panel.current_style_label() == f"{window.style_combo.currentText()} options"
+
+
 def test_changing_style_combo_swaps_the_panel(qtbot):
     window = MainWindow()
     qtbot.addWidget(window)

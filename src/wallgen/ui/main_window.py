@@ -1,3 +1,12 @@
+"""The WallGen main window.
+
+This is a UI shell wired to mock data (see mock_data.py). Generate, the
+monitor chips, the preview viewport, and the progress track are visually
+complete but intentionally inert until the render engine, SQLite library,
+and Windows wallpaper-setting land in later plans (see the UI-shell plan's
+"After this plan" section).
+"""
+
 from __future__ import annotations
 
 import random
