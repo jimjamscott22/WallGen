@@ -7,3 +7,11 @@ def test_window_title_and_size(qtbot):
     assert window.windowTitle() == "WallGen"
     assert window.size().width() == 1440
     assert window.size().height() == 900
+
+
+def test_window_applies_theme_stylesheet(qtbot):
+    from wallgen.ui import theme
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    assert theme.COPPER in window.styleSheet()
