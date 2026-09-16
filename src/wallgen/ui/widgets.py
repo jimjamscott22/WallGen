@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -121,3 +122,80 @@ class RerollDial(QAbstractButton):
         arrow_rect = QRectF(rect.center().x() - 8, rect.center().y() - 8, 16, 16)
         painter.drawArc(arrow_rect, 20 * 16, 300 * 16)
         painter.end()
+
+
+class MonitorChip(QFrame):
+    """A labeled port on the 'Set on' row — a detected monitor, or 'All'."""
+
+    def __init__(self, name: str, resolution: str, active: bool = False, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setProperty("role", "chip-active" if active else "chip")
+        self._active = active
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 8, 16, 8)
+        outer.setSpacing(2)
+
+        top_row = QHBoxLayout()
+        top_row.addStretch(1)
+        dot_color = theme.VERDIGRIS if active else theme.TEXT_MUTED
+        top_row.addWidget(StatusDot(dot_color, glow=active))
+        outer.addLayout(top_row)
+
+        name_label = QLabel(name)
+        name_label.setProperty("role", "value")
+        outer.addWidget(name_label)
+
+        if resolution:
+            res_label = QLabel(resolution)
+            res_label.setProperty("role", "field-label")
+            outer.addWidget(res_label)
+
+        self._name_label = name_label
+
+    def is_active(self) -> bool:
+        return self._active
+
+    def name_text(self) -> str:
+        return self._name_label.text()
+
+
+class LibraryThumbnail(QFrame):
+    """One frame of the library contact sheet."""
+
+    def __init__(self, style_label: str, dot_color: str, art_color: str, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setFixedWidth(172)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(6)
+
+        sprocket_top = QFrame()
+        sprocket_top.setProperty("role", "sprocket")
+        sprocket_top.setFixedHeight(6)
+        outer.addWidget(sprocket_top)
+
+        art = QFrame()
+        art.setFixedHeight(88)
+        art.setStyleSheet(f"background: {art_color}; border: none;")
+        outer.addWidget(art)
+
+        sprocket_bottom = QFrame()
+        sprocket_bottom.setProperty("role", "sprocket")
+        sprocket_bottom.setFixedHeight(6)
+        outer.addWidget(sprocket_bottom)
+
+        caption = QHBoxLayout()
+        caption.setSpacing(6)
+        caption.addWidget(StatusDot(dot_color))
+        label = QLabel(style_label)
+        label.setProperty("role", "field-label")
+        caption.addWidget(label)
+        caption.addStretch(1)
+        outer.addLayout(caption)
+
+        self._style_label = style_label
+
+    def style_label(self) -> str:
+        return self._style_label
