@@ -5,6 +5,8 @@ description = "Procedural desktop wallpapers for Windows."
 requires-python = ">=3.12"
 dependencies = [
     "pyside6>=6.11",
+    "pillow>=11",
+    "numpy>=2",
 ]
 
 [project.scripts]
