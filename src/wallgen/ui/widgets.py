@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QRadialGradient
+from PySide6.QtGui import QBrush, QColor, QIntValidator, QPainter, QPen, QRadialGradient
 from PySide6.QtWidgets import (
     QAbstractButton,
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -45,25 +46,35 @@ class StatusDot(QWidget):
         painter.end()
 
 
+MAX_SEED = 2**31 - 1
+
+
 class SeedField(QFrame):
-    """A recessed, monospace readout for the render seed."""
+    """A recessed, monospace, digits-only field for the render seed."""
 
     def __init__(self, seed: int = 0, parent: QWidget | None = None):
         super().__init__(parent)
+        self.setObjectName("seedField")
+        self.setFixedWidth(150)
         self.setStyleSheet(
-            f"background: {theme.BG_SEED}; border: 1px solid {theme.HAIRLINE}; border-radius: 3px;"
+            f"QFrame#seedField {{ background: {theme.BG_SEED}; border: 1px solid {theme.HAIRLINE};"
+            f" border-radius: 3px; }}"
+            f"QFrame#seedField QLineEdit {{ background: transparent; border: none; padding: 0;"
+            f" color: {theme.TEXT_PRIMARY}; font-family: {theme.FONT_MONO}; font-size: 14px; }}"
         )
-        self._label = QLabel(str(seed))
-        self._label.setProperty("role", "value")
+        self._edit = QLineEdit(str(seed))
+        self._edit.setValidator(QIntValidator(0, MAX_SEED, self._edit))
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 6, 12, 6)
-        layout.addWidget(self._label)
+        layout.addWidget(self._edit)
 
     def seed(self) -> int:
-        return int(self._label.text())
+        text = self._edit.text() or "0"
+        value = int(text)
+        return min(value, MAX_SEED)
 
     def set_seed(self, seed: int) -> None:
-        self._label.setText(str(seed))
+        self._edit.setText(str(seed))
 
 
 class RerollDial(QAbstractButton):
@@ -199,3 +210,32 @@ class LibraryThumbnail(QFrame):
 
     def style_label(self) -> str:
         return self._style_label
+
+
+class ProgressTrack(QFrame):
+    """The thin track under the preview; a copper fill shows render progress."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setFixedHeight(3)
+        self._fraction = 0.0
+
+    def fraction(self) -> float:
+        return self._fraction
+
+    def set_fraction(self, fraction: float) -> None:
+        self._fraction = max(0.0, min(1.0, fraction))
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        rect = QRectF(self.rect())
+        painter.setBrush(QColor(theme.HAIRLINE))
+        painter.drawRoundedRect(rect, 2, 2)
+        if self._fraction > 0.0:
+            fill = QRectF(rect.left(), rect.top(), rect.width() * self._fraction, rect.height())
+            painter.setBrush(QColor(theme.COPPER))
+            painter.drawRoundedRect(fill, 2, 2)
+        painter.end()
