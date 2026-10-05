@@ -36,3 +36,9 @@ def test_colors_dict_matches_constants():
 def test_radius_and_mono_family_tokens():
     assert theme.RADIUS == 4
     assert theme.FONT_MONO_FAMILIES == ("JetBrains Mono", "Consolas")
+
+
+def test_stylesheet_styles_the_style_panel_editors():
+    css = theme.stylesheet()
+    assert "QLineEdit, QPlainTextEdit" in css
+    assert "QCheckBox" in css

@@ -135,4 +135,24 @@ def stylesheet() -> str:
     QPushButton#generate:hover {{
         background: {COPPER_HOVER};
     }}
+    QLineEdit, QPlainTextEdit {{
+        background: {BG_SEED};
+        color: {TEXT_PRIMARY};
+        font-family: {FONT_MONO};
+        font-size: 13px;
+        border: 1px solid {HAIRLINE};
+        border-radius: 3px;
+        padding: 6px 8px;
+        selection-background-color: {COPPER};
+        selection-color: {BG_WINDOW};
+    }}
+    QLineEdit:focus, QPlainTextEdit:focus {{
+        border: 1px solid {COPPER};
+    }}
+    QCheckBox {{
+        color: {TEXT_PRIMARY};
+        font-family: {FONT_UI};
+        font-size: 13px;
+        spacing: 8px;
+    }}
     """
