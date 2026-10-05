@@ -90,6 +90,18 @@ def test_seed_field_stays_within_the_32_bit_range(qtbot):
     assert field.seed() <= 2**31 - 1
 
 
+def test_seed_field_accepts_the_max_seed_but_rejects_one_more_digit_past_it(qtbot):
+    field = SeedField(5)
+    qtbot.addWidget(field)
+    edit = field.findChild(QLineEdit)
+    edit.clear()
+    qtbot.keyClicks(edit, "2147483647")
+    assert field.seed() == 2**31 - 1
+    edit.clear()
+    qtbot.keyClicks(edit, "2147483648")  # final digit pushes it past the max, so it is rejected
+    assert field.seed() == 214748364
+
+
 def test_seed_field_reads_empty_as_zero(qtbot):
     field = SeedField(5)
     qtbot.addWidget(field)

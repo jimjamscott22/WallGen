@@ -49,6 +49,16 @@ class StatusDot(QWidget):
 MAX_SEED = 2**31 - 1
 
 
+class _SeedValidator(QIntValidator):
+    """QIntValidator that also rejects (not just flags) digit strings above the top."""
+
+    def validate(self, text, pos):
+        state, text, pos = super().validate(text, pos)
+        if state == QIntValidator.State.Intermediate and text.isdigit() and int(text) > self.top():
+            return QIntValidator.State.Invalid, text, pos
+        return state, text, pos
+
+
 class SeedField(QFrame):
     """A recessed, monospace, digits-only field for the render seed."""
 
@@ -63,7 +73,7 @@ class SeedField(QFrame):
             f" color: {theme.TEXT_PRIMARY}; font-family: {theme.FONT_MONO}; font-size: 14px; }}"
         )
         self._edit = QLineEdit(str(seed))
-        self._edit.setValidator(QIntValidator(0, MAX_SEED, self._edit))
+        self._edit.setValidator(_SeedValidator(0, MAX_SEED, self._edit))
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 6, 12, 6)
         layout.addWidget(self._edit)
