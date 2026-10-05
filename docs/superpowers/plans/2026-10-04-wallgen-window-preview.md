@@ -486,16 +486,18 @@ def test_error_keeps_the_last_image_and_a_new_image_clears_it(qtbot):
     assert pane.error_text() == ""
 
 
-def test_painting_every_state_does_not_crash(qtbot):
+def test_each_state_paints_differently(qtbot):
     pane = PreviewPane(fade_ms=50)
     qtbot.addWidget(pane)
     pane.resize(240, 140)
-    pane.grab()  # empty hint
+    empty = pane.grab().toImage()  # "Press Generate" hint
     pane.show_image(_image())
-    pane.grab()  # mid-fade
     qtbot.waitUntil(lambda: not pane.is_fading(), timeout=2000)
-    pane.show_error("a fairly long error message " * 6)
-    pane.grab()  # error strip, elided
+    with_image = pane.grab().toImage()
+    pane.show_error("a fairly long error message " * 6)  # exercises eliding too
+    with_error = pane.grab().toImage()
+    assert with_image != empty
+    assert with_error != with_image
 ```
 
 - [ ] **Step 3: Run the tests**
@@ -681,13 +683,14 @@ def test_progress_track_clamps_the_fraction(qtbot):
     assert track.fraction() == 0.0
 
 
-def test_progress_track_paints_idle_and_partial(qtbot):
+def test_progress_track_paints_the_fill(qtbot):
     track = ProgressTrack()
     qtbot.addWidget(track)
     track.resize(200, 3)
-    track.grab()
+    idle = track.grab().toImage()
     track.set_fraction(0.5)
-    track.grab()
+    partial = track.grab().toImage()
+    assert partial != idle
 ```
 
 - [ ] **Step 5: Run the widget tests**
