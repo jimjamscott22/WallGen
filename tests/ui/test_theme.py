@@ -31,3 +31,8 @@ def test_stylesheet_styles_the_combo_box_popup():
 def test_colors_dict_matches_constants():
     assert theme.COLORS["copper"] == theme.COPPER
     assert theme.COLORS["verdigris"] == theme.VERDIGRIS
+
+
+def test_radius_and_mono_family_tokens():
+    assert theme.RADIUS == 4
+    assert theme.FONT_MONO_FAMILIES == ("JetBrains Mono", "Consolas")

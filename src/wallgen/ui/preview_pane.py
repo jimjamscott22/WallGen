@@ -88,7 +88,7 @@ class PreviewPane(QWidget):
         frame = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         painter.setPen(QPen(QColor(theme.HAIRLINE), 1))
         painter.setBrush(QColor(theme.BG_VIEWPORT))
-        painter.drawRoundedRect(frame, 4, 4)
+        painter.drawRoundedRect(frame, theme.RADIUS, theme.RADIUS)
 
         inner = self.rect().adjusted(1, 1, -1, -1)
         if self._pixmap is None:
@@ -105,7 +105,7 @@ class PreviewPane(QWidget):
             strip = QRect(inner.left(), inner.bottom() - _ERROR_STRIP_HEIGHT + 1, inner.width(), _ERROR_STRIP_HEIGHT)
             painter.fillRect(strip, QColor(theme.BG_WINDOW))
             font = QFont()
-            font.setFamilies(["JetBrains Mono", "Consolas"])
+            font.setFamilies(list(theme.FONT_MONO_FAMILIES))
             font.setPixelSize(12)
             painter.setFont(font)
             painter.setPen(QColor(theme.TEXT_MUTED))

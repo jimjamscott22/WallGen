@@ -25,6 +25,9 @@ VERDIGRIS = "#4FA695"
 FONT_UI = "'Archivo Narrow', 'Arial Narrow', sans-serif"
 FONT_MONO = "'JetBrains Mono', 'Consolas', monospace"
 
+RADIUS = 4
+FONT_MONO_FAMILIES = ("JetBrains Mono", "Consolas")
+
 COLORS = {
     "bg_window": BG_WINDOW,
     "bg_panel": BG_PANEL,
