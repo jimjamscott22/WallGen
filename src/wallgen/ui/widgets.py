@@ -69,9 +69,7 @@ class SeedField(QFrame):
         layout.addWidget(self._edit)
 
     def seed(self) -> int:
-        text = self._edit.text() or "0"
-        value = int(text)
-        return min(value, MAX_SEED)
+        return int(self._edit.text() or 0)
 
     def set_seed(self, seed: int) -> None:
         self._edit.setText(str(seed))
