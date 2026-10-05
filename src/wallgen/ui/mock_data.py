@@ -1,14 +1,5 @@
-"""Placeholder content standing in for the render engine, the SQLite
-library, and Windows monitor detection until those subsystems exist
-(spec §3, §4, §5)."""
-
-MOCK_STYLES = ["pcb", "coderain", "terminal", "codeblock"]
-
-MOCK_PALETTES = ["cyber", "amber", "matrix", "violet", "ice", "crimson"]
-
-MOCK_SIZES = ["2560 x 1440", "3440 x 1440", "1920 x 1080"]
-
-MOCK_QUIET_ZONES = ["left", "top", "none"]
+"""Placeholder content standing in for the SQLite library and Windows
+monitor detection until those subsystems exist (spec §4, §5)."""
 
 MOCK_MONITORS = [
     {"name": "All", "resolution": "", "active": True},
