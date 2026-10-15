@@ -4,16 +4,17 @@ from PySide6.QtWidgets import QFrame
 
 from wallgen.engine import PALETTES, SIZES, EngineError, RenderSpec
 from wallgen.ui import jobs, theme
+from wallgen.ui import main_window
 from wallgen.ui.main_window import QUIET_ZONES, MainWindow
-from wallgen.ui.mock_data import MOCK_LIBRARY, MOCK_MONITORS
+from wallgen.ui.mock_data import MOCK_LIBRARY
 from wallgen.ui.style_options import STYLE_LABELS, STYLE_ORDER
 
 TINY = 320  # preview width used by tests that really render
 
 
 @pytest.fixture
-def window(qtbot):
-    win = MainWindow(preview_max_width=TINY)
+def window(qtbot, tmp_path):
+    win = MainWindow(preview_max_width=TINY, render_directory=tmp_path)
     qtbot.addWidget(win)
     yield win
     win.controller.wait_for_done()
@@ -66,10 +67,9 @@ def test_current_spec_reflects_the_controls(window):
     assert spec.user == "jamie@box"
 
 
-def test_monitor_chips_match_mock_data(window):
-    assert len(window.monitor_chips) == len(MOCK_MONITORS)
-    assert window.monitor_chips[0].name_text() == "All"
-    assert window.monitor_chips[0].is_active() is True
+def test_set_all_starts_disabled(window):
+    assert window.set_all_button.text() == "Set on all monitors"
+    assert not window.set_all_button.isEnabled()
 
 
 def test_library_strip_matches_mock_data(window):
@@ -87,10 +87,13 @@ def test_changing_style_combo_swaps_the_panel(window):
 
 def test_generate_renders_and_shows_a_preview(qtbot, window):
     assert window.preview_pane.has_image() is False
+    window.style_combo.setCurrentIndex(window.style_combo.findData("terminal"))
     qtbot.mouseClick(window.generate_button, Qt.LeftButton)
     qtbot.waitUntil(window.preview_pane.has_image, timeout=15000)
     assert window.preview_pane.image_size() == QSize(320, 180)
-    qtbot.waitUntil(lambda: window.progress_track.fraction() == 0.0, timeout=5000)
+    qtbot.waitUntil(window.set_all_button.isEnabled, timeout=20000)
+    assert window.preview_pane.image_size() == QSize(2560, 1440)
+    assert window.progress_track.fraction() == 1.0
 
 
 def test_changing_a_control_does_not_render(qtbot, window):
@@ -129,3 +132,36 @@ def test_control_rail_vertical_dividers_are_not_height_clamped(window):
     assert len(vertical_dividers) == 3
     for divider in vertical_dividers:
         assert divider.maximumHeight() >= 30
+
+
+def test_set_all_uses_displayed_render_even_if_controls_change(window, monkeypatch, tmp_path):
+    from PySide6.QtGui import QImage
+
+    saved = tmp_path / "render.png"
+    image = QImage(640, 360, QImage.Format_RGB32)
+    window._on_full_ready(image, saved)
+    window.seed_field.set_seed(999)
+    calls = []
+    monkeypatch.setattr(main_window, "set_on_all_monitors", calls.append)
+    window.set_all_button.click()
+    assert calls == [saved]
+    assert window.render_status.text() == "Wallpaper set on all monitors."
+    monkeypatch.setattr(window.controller, "submit", lambda spec: None)
+    window._on_generate()
+    assert not window.set_all_button.isEnabled()
+    window._on_set_all()
+    assert calls == [saved]
+
+
+def test_set_failure_shows_error_and_allows_retry(window, monkeypatch, tmp_path):
+    from PySide6.QtGui import QImage
+
+    window._on_full_ready(QImage(10, 10, QImage.Format_RGB32), tmp_path / "render.png")
+
+    def fail(path):
+        raise OSError("access denied")
+
+    monkeypatch.setattr(main_window, "set_on_all_monitors", fail)
+    window.set_all_button.click()
+    assert "access denied" in window.render_status.text()
+    assert window.set_all_button.isEnabled()

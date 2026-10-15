@@ -1,0 +1,1 @@
+"""Storage for generated wallpapers."""

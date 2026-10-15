@@ -2,14 +2,14 @@
 
 Generate, the reroll dial, the preview pane, the progress track and the style
 options are live: they build a RenderSpec and render a preview off-thread via
-RenderController. The monitor chips and the library strip are still wired to
-mock data (see mock_data.py) until Windows wallpaper-setting and the SQLite
-library land in later milestones.
+RenderController. Full renders are saved and can be set on all monitors.
+The library strip still uses mock data until milestone 4.
 """
 
 from __future__ import annotations
 
 import random
+from pathlib import Path
 from typing import get_args
 
 from PySide6.QtCore import Qt
@@ -26,14 +26,14 @@ from PySide6.QtWidgets import (
 
 from wallgen.engine import PALETTES, SIZES, RenderSpec
 from wallgen.engine.spec import QuietZone
+from wallgen.platform_win.desktop import set_on_all_monitors
 from wallgen.ui import theme
 from wallgen.ui.jobs import DEFAULT_PREVIEW_WIDTH, RenderController
-from wallgen.ui.mock_data import MOCK_LIBRARY, MOCK_MONITORS
+from wallgen.ui.mock_data import MOCK_LIBRARY
 from wallgen.ui.preview_pane import PreviewPane
 from wallgen.ui.style_options import STYLE_LABELS, STYLE_ORDER, StyleOptionsPanel
 from wallgen.ui.widgets import (
     LibraryThumbnail,
-    MonitorChip,
     ProgressTrack,
     RerollDial,
     SeedField,
@@ -73,13 +73,19 @@ def _hairline(vertical: bool = False) -> QFrame:
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, preview_max_width: int = DEFAULT_PREVIEW_WIDTH) -> None:
+    def __init__(
+        self, preview_max_width: int = DEFAULT_PREVIEW_WIDTH,
+        render_directory: Path | None = None,
+    ) -> None:
         super().__init__()
         self.setWindowTitle("WallGen")
         self.resize(1440, 900)
         self.setStyleSheet(theme.stylesheet())
 
-        self.controller = RenderController(max_width=preview_max_width, parent=self)
+        self.controller = RenderController(
+            max_width=preview_max_width, parent=self, directory=render_directory
+        )
+        self._render_path: Path | None = None
 
         root = QWidget()
         root.setObjectName("root")
@@ -204,17 +210,17 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(28, 14, 28, 14)
         layout.setSpacing(14)
 
-        label = QLabel("Set on")
-        label.setProperty("role", "field-label")
-        layout.addWidget(label)
-
-        self.monitor_chips: list[MonitorChip] = []
-        for monitor in MOCK_MONITORS:
-            chip = MonitorChip(monitor["name"], monitor["resolution"], monitor["active"])
-            self.monitor_chips.append(chip)
-            layout.addWidget(chip)
-
-        layout.addStretch(1)
+        self.set_all_button = QPushButton("Set on all monitors")
+        self.set_all_button.setObjectName("setWallpaper")
+        self.set_all_button.setCursor(Qt.PointingHandCursor)
+        self.set_all_button.setEnabled(False)
+        self.set_all_button.setToolTip("Applies the displayed full-resolution render to all monitors.")
+        self.set_all_button.clicked.connect(self._on_set_all)
+        layout.addWidget(self.set_all_button)
+        self.render_status = QLabel("Generate a wallpaper to get started.")
+        self.render_status.setProperty("role", "field-label")
+        self.render_status.setWordWrap(True)
+        layout.addWidget(self.render_status, 1)
         return row
 
     def _build_library_row(self) -> QWidget:
@@ -243,7 +249,8 @@ class MainWindow(QMainWindow):
 
     def _connect_controller(self) -> None:
         self.controller.preview_ready.connect(self.preview_pane.show_image)
-        self.controller.failed.connect(self.preview_pane.show_error)
+        self.controller.full_ready.connect(self._on_full_ready)
+        self.controller.failed.connect(self._on_failed)
         self.controller.progress.connect(self._on_progress)
         self.controller.busy_changed.connect(self._on_busy_changed)
 
@@ -260,7 +267,37 @@ class MainWindow(QMainWindow):
         )
 
     def _on_generate(self) -> None:
+        self._render_path = None
+        self.set_all_button.setEnabled(False)
+        self.render_status.setText("Rendering preview…")
         self.controller.submit(self.current_spec())
+
+    def _on_full_ready(self, image, path: Path) -> None:
+        self._render_path = path
+        self.preview_pane.show_image(image)
+        self.set_all_button.setEnabled(True)
+        self.render_status.setText(f"Ready · {image.width()} × {image.height()}")
+
+    def _on_failed(self, message: str) -> None:
+        self._render_path = None
+        self.set_all_button.setEnabled(False)
+        self.preview_pane.show_error(message)
+        self.render_status.setText(f"Generation failed: {message}")
+
+    def _on_set_all(self) -> None:
+        if self._render_path is None:
+            return
+        try:
+            set_on_all_monitors(self._render_path)
+        except OSError as exc:
+            self.render_status.setText(f"Could not set wallpaper: {exc}")
+        else:
+            self.render_status.setText("Wallpaper set on all monitors.")
+
+    def closeEvent(self, event) -> None:
+        # Keep the controller and its signal objects alive until workers finish.
+        self.controller.wait_for_done()
+        super().closeEvent(event)
 
     def _on_style_changed(self, index: int) -> None:
         self.style_panel.set_style(self.style_combo.itemData(index))
@@ -271,6 +308,7 @@ class MainWindow(QMainWindow):
 
     def _on_progress(self, fraction: float, note: str) -> None:
         self.progress_track.set_fraction(fraction)
+        self.render_status.setText(note)
 
     def _on_busy_changed(self, busy: bool) -> None:
         if not busy:

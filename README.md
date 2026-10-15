@@ -58,11 +58,22 @@ Run anyway*.
 
 ## Using it
 
+Milestone 3 is implemented: **Generate** shows a quick preview, renders the selected
+full resolution in the background, and saves a unique PNG under
+`%LOCALAPPDATA%\WallGen\library`. **Set on all monitors** becomes available once
+that render is saved and applies the displayed image across the desktop. Editing
+controls does not change the image until you generate again. Progress and any
+generation or wallpaper-setting errors appear beside the button.
+
+The library strip is still placeholder content. Library browsing and per-monitor
+selection are planned for milestones 4 and 5. The layout and interactions below
+describe the completed v1 design.
+
 <!-- Swap this for a real screenshot once the window exists — and consider a short GIF of
      pressing the re-roll button a few times, which sells the app better than any still. -->
 <img src="docs/screenshot.png" alt="Mockup of the WallGen window: parameter controls across the top, a live preview with the style-specific options beside it, a monitor bar, and the library grid along the bottom" width="100%">
 
-<sub>Mockup of the planned layout — the real thing doesn't exist yet.</sub>
+<sub>Mockup of the planned v1 layout.</sub>
 
 1. Pick a style, palette, and size. Connected monitors show up as one-click sizes.
 2. **Generate.** You get a fast half-size preview first, then the full render lands behind it.

@@ -135,6 +135,23 @@ def stylesheet() -> str:
     QPushButton#generate:hover {{
         background: {COPPER_HOVER};
     }}
+    QPushButton#setWallpaper {{
+        background: {BG_PANEL};
+        color: {TEXT_PRIMARY};
+        font-family: {FONT_UI};
+        font-size: 13px;
+        border: 1px solid {COPPER};
+        border-radius: 3px;
+        padding: 10px 18px;
+    }}
+    QPushButton#setWallpaper:hover {{
+        background: {COPPER_DARK};
+    }}
+    QPushButton#setWallpaper:disabled {{
+        color: {TEXT_MUTED};
+        border-color: {HAIRLINE};
+        background: {BG_WINDOW};
+    }}
     QLineEdit, QPlainTextEdit {{
         background: {BG_SEED};
         color: {TEXT_PRIMARY};
