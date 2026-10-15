@@ -1,4 +1,4 @@
-"""Persistent render files; the searchable library arrives in milestone 4."""
+"""Persistent render paths and atomic PNG saving."""
 
 from __future__ import annotations
 

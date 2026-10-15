@@ -172,4 +172,30 @@ def stylesheet() -> str:
         font-size: 13px;
         spacing: 8px;
     }}
+    QListWidget#libraryGrid {{
+        background: {BG_WINDOW};
+        color: {TEXT_PRIMARY};
+        border: none;
+        font-family: {FONT_UI};
+        font-size: 12px;
+        outline: none;
+    }}
+    QListWidget#libraryGrid::item {{
+        background: {BG_PANEL};
+        border: 1px solid {HAIRLINE};
+        border-radius: 3px;
+        padding: 4px;
+    }}
+    QListWidget#libraryGrid::item:selected {{ border-color: {COPPER}; }}
+    QListWidget#libraryGrid::item:hover {{ background: {COPPER_DARK}; }}
+    QMenu {{
+        background: {BG_PANEL}; color: {TEXT_PRIMARY};
+        border: 1px solid {HAIRLINE};
+    }}
+    QMenu::item:selected {{ background: {COPPER_DARK}; }}
+    QPushButton#libraryMore {{
+        background: {BG_PANEL}; color: {TEXT_PRIMARY};
+        border: 1px solid {HAIRLINE}; border-radius: 3px; padding: 6px 12px;
+    }}
+    QPushButton#libraryMore:disabled {{ color: {TEXT_MUTED}; }}
     """

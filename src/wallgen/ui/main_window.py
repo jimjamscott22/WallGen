@@ -3,13 +3,14 @@
 Generate, the reroll dial, the preview pane, the progress track and the style
 options are live: they build a RenderSpec and render a preview off-thread via
 RenderController. Full renders are saved and can be set on all monitors.
-The library strip still uses mock data until milestone 4.
+The library restores saved images and their full generation settings.
 """
 
 from __future__ import annotations
 
 import random
 from pathlib import Path
+import sqlite3
 from typing import get_args
 
 from PySide6.QtCore import Qt
@@ -27,13 +28,13 @@ from PySide6.QtWidgets import (
 from wallgen.engine import PALETTES, SIZES, RenderSpec
 from wallgen.engine.spec import QuietZone
 from wallgen.platform_win.desktop import set_on_all_monitors
+from wallgen.store.db import LibraryStore
 from wallgen.ui import theme
 from wallgen.ui.jobs import DEFAULT_PREVIEW_WIDTH, RenderController
-from wallgen.ui.mock_data import MOCK_LIBRARY
+from wallgen.ui.library_panel import LibraryPanel
 from wallgen.ui.preview_pane import PreviewPane
 from wallgen.ui.style_options import STYLE_LABELS, STYLE_ORDER, StyleOptionsPanel
 from wallgen.ui.widgets import (
-    LibraryThumbnail,
     ProgressTrack,
     RerollDial,
     SeedField,
@@ -82,10 +83,10 @@ class MainWindow(QMainWindow):
         self.resize(1440, 900)
         self.setStyleSheet(theme.stylesheet())
 
-        self.controller = RenderController(
-            max_width=preview_max_width, parent=self, directory=render_directory
-        )
+        self.library = LibraryStore(render_directory)
+        self.controller = RenderController(max_width=preview_max_width, parent=self, library=self.library)
         self._render_path: Path | None = None
+        self._loading_id: str | None = None
 
         root = QWidget()
         root.setObjectName("root")
@@ -106,6 +107,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_library_row())
 
         self._connect_controller()
+        self.library_panel.refresh()
 
     def _build_header(self) -> QWidget:
         header = QWidget()
@@ -224,28 +226,12 @@ class MainWindow(QMainWindow):
         return row
 
     def _build_library_row(self) -> QWidget:
-        row = QWidget()
-        layout = QVBoxLayout(row)
-        layout.setContentsMargins(28, 14, 28, 18)
-        layout.setSpacing(10)
-
-        header = QHBoxLayout()
-        title = QLabel("Library")
-        title.setProperty("role", "field-label")
-        header.addWidget(title)
-        header.addStretch(1)
-        layout.addLayout(header)
-
-        strip = QHBoxLayout()
-        strip.setSpacing(12)
-        self.library_thumbnails: list[LibraryThumbnail] = []
-        for item in MOCK_LIBRARY:
-            thumb = LibraryThumbnail(STYLE_LABELS[item["style"]], item["dot"], item["art"])
-            self.library_thumbnails.append(thumb)
-            strip.addWidget(thumb)
-        strip.addStretch(1)
-        layout.addLayout(strip)
-        return row
+        self.library_panel = LibraryPanel(self.library)
+        self.library_panel.load_requested.connect(self._load_library_item)
+        self.library_panel.rerender_requested.connect(self._rerender_library_item)
+        self.library_panel.deleted.connect(self._on_library_deleted)
+        self.library_panel.message.connect(self.render_status.setText)
+        return self.library_panel
 
     def _connect_controller(self) -> None:
         self.controller.preview_ready.connect(self.preview_pane.show_image)
@@ -253,9 +239,11 @@ class MainWindow(QMainWindow):
         self.controller.failed.connect(self._on_failed)
         self.controller.progress.connect(self._on_progress)
         self.controller.busy_changed.connect(self._on_busy_changed)
+        self.controller.library_changed.connect(self.library_panel.refresh)
 
     def current_spec(self) -> RenderSpec:
-        width, height = SIZES[self.size_combo.currentData()]
+        size = self.size_combo.currentData()
+        width, height = SIZES[size] if isinstance(size, str) else size
         return RenderSpec(
             style=self.style_combo.currentData(),
             width=width,
@@ -266,20 +254,70 @@ class MainWindow(QMainWindow):
             **self.style_panel.values(),
         )
 
+    def load_spec(self, spec: RenderSpec) -> None:
+        """Restore controls without starting a render."""
+        self.style_combo.setCurrentIndex(self.style_combo.findData(spec.style))
+        self.palette_combo.setCurrentIndex(self.palette_combo.findData(spec.palette))
+        self.quiet_combo.setCurrentIndex(self.quiet_combo.findData(spec.quiet_zone))
+        size_key = next((key for key, size in SIZES.items() if size == (spec.width, spec.height)), None)
+        data = size_key if size_key is not None else (spec.width, spec.height)
+        index = self.size_combo.findData(data)
+        if index < 0:
+            self.size_combo.addItem(f"Custom · {spec.width} x {spec.height}", data)
+            index = self.size_combo.count() - 1
+        self.size_combo.setCurrentIndex(index)
+        self.seed_field.set_seed(spec.seed)
+        self.style_panel.load_spec(spec)
+
+    def _load_library_item(self, item_id: str) -> None:
+        try:
+            entry = self.library.get(item_id)
+            self.load_spec(entry.spec)
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            self.render_status.setText(f"Could not load wallpaper: {exc}")
+            return
+        self._render_path = None
+        self.set_all_button.setEnabled(False)
+        self.render_status.setText("Loading saved wallpaper…")
+        self._loading_id = item_id
+        self.controller.load(self.library.image_path(item_id))
+
+    def _rerender_library_item(self, item_id: str, size_key: str) -> None:
+        try:
+            spec = self.library.get(item_id).spec.at(*SIZES[size_key])
+            self.load_spec(spec)
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            self.render_status.setText(f"Could not re-render wallpaper: {exc}")
+            return
+        self._on_generate()
+
+    def _on_library_deleted(self, item_id: str) -> None:
+        # A pending load of this item must not re-enable setting a deleted image.
+        if self._loading_id == item_id or (
+            self._render_path is not None and self._render_path.stem == item_id
+        ):
+            self.controller.invalidate()
+            self._render_path = None
+            self._loading_id = None
+            self.set_all_button.setEnabled(False)
+
     def _on_generate(self) -> None:
         self._render_path = None
+        self._loading_id = None
         self.set_all_button.setEnabled(False)
         self.render_status.setText("Rendering preview…")
         self.controller.submit(self.current_spec())
 
     def _on_full_ready(self, image, path: Path) -> None:
         self._render_path = path
+        self._loading_id = None
         self.preview_pane.show_image(image)
         self.set_all_button.setEnabled(True)
         self.render_status.setText(f"Ready · {image.width()} × {image.height()}")
 
     def _on_failed(self, message: str) -> None:
         self._render_path = None
+        self._loading_id = None
         self.set_all_button.setEnabled(False)
         self.preview_pane.show_error(message)
         self.render_status.setText(f"Generation failed: {message}")
@@ -292,7 +330,12 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             self.render_status.setText(f"Could not set wallpaper: {exc}")
         else:
-            self.render_status.setText("Wallpaper set on all monitors.")
+            try:
+                self.library.mark_set(self._render_path.stem)
+            except (OSError, ValueError, sqlite3.Error) as exc:
+                self.render_status.setText(f"Wallpaper set; could not update library: {exc}")
+            else:
+                self.render_status.setText("Wallpaper set on all monitors.")
 
     def closeEvent(self, event) -> None:
         # Keep the controller and its signal objects alive until workers finish.

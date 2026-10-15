@@ -6,7 +6,6 @@ from wallgen.engine import PALETTES, SIZES, EngineError, RenderSpec
 from wallgen.ui import jobs, theme
 from wallgen.ui import main_window
 from wallgen.ui.main_window import QUIET_ZONES, MainWindow
-from wallgen.ui.mock_data import MOCK_LIBRARY
 from wallgen.ui.style_options import STYLE_LABELS, STYLE_ORDER
 
 TINY = 320  # preview width used by tests that really render
@@ -72,8 +71,9 @@ def test_set_all_starts_disabled(window):
     assert not window.set_all_button.isEnabled()
 
 
-def test_library_strip_matches_mock_data(window):
-    assert len(window.library_thumbnails) == len(MOCK_LIBRARY)
+def test_library_starts_empty(window):
+    assert window.library_panel.grid.count() == 0
+    assert "start your library" in window.library_panel.hint.text()
 
 
 def test_window_opens_on_the_style_its_combo_shows(window):

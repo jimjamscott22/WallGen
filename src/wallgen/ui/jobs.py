@@ -17,6 +17,7 @@ from PySide6.QtGui import QImage
 
 from wallgen.engine import RenderSpec, preview, render
 from wallgen.store.paths import save_render
+from wallgen.store.db import LibraryStore
 
 DEFAULT_PREVIEW_WIDTH = 1280
 _MAX_THREADS = 2
@@ -45,6 +46,7 @@ class RenderJob(QRunnable):
     def __init__(
         self, spec: RenderSpec, generation: int, max_width: int,
         signals: _JobSignals, directory: Path | None = None,
+        library: LibraryStore | None = None,
     ):
         super().__init__()
         self._spec = spec
@@ -52,6 +54,7 @@ class RenderJob(QRunnable):
         self._max_width = max_width
         self._signals = signals
         self._directory = directory
+        self._library = library
 
     def run(self) -> None:
         # Nothing may escape run(): an exception in a pool thread would be lost.
@@ -73,7 +76,8 @@ class RenderJob(QRunnable):
                     ),
                 )
             self._signals.progress.emit(self._generation, 0.95, "Saving full-resolution PNG…")
-            path = save_render(image, self._directory)
+            path = (self._library.save(image, self._spec) if self._library is not None
+                    else save_render(image, self._directory))
             qimage = pil_to_qimage(image)
         except Exception as exc:  # noqa: BLE001 - reported to the UI, not swallowed
             self._signals.failed.emit(self._generation, str(exc) or type(exc).__name__)
@@ -81,11 +85,29 @@ class RenderJob(QRunnable):
         self._signals.finished.emit(self._generation, qimage, path)
 
 
+class LoadJob(QRunnable):
+    """Decode a saved full-resolution image off the GUI thread."""
+
+    def __init__(self, path: Path, generation: int, signals: _JobSignals):
+        super().__init__()
+        self.path, self.generation, self.signals = path, generation, signals
+
+    def run(self) -> None:
+        try:
+            with Image.open(self.path) as image:
+                result = pil_to_qimage(image)
+        except Exception as exc:
+            self.signals.failed.emit(self.generation, str(exc) or type(exc).__name__)
+            return
+        self.signals.finished.emit(self.generation, result, self.path)
+
+
 class RenderController(QObject):
     """Re-emits only the latest generation's preview and saved full render."""
 
     preview_ready = Signal(QImage)
     full_ready = Signal(QImage, object)
+    library_changed = Signal()
     progress = Signal(float, str)
     failed = Signal(str)
     busy_changed = Signal(bool)
@@ -93,10 +115,12 @@ class RenderController(QObject):
     def __init__(
         self, max_width: int = DEFAULT_PREVIEW_WIDTH, parent: QObject | None = None,
         directory: Path | None = None,
+        library: LibraryStore | None = None,
     ):
         super().__init__(parent)
         self._max_width = max_width
         self._directory = directory
+        self._library = library
         self._pool = QThreadPool(self)
         self._pool.setMaxThreadCount(_MAX_THREADS)
         self._generation = 0
@@ -104,7 +128,7 @@ class RenderController(QObject):
         # Keeps each job's signal object alive until its result has been handled.
         self._live: dict[int, _JobSignals] = {}
 
-    def submit(self, spec: RenderSpec) -> None:
+    def _start(self) -> tuple[int, _JobSignals]:
         self._generation += 1
         generation = self._generation
         signals = _JobSignals()
@@ -114,7 +138,22 @@ class RenderController(QObject):
         signals.failed.connect(self._on_failed)
         self._live[generation] = signals
         self._set_busy(True)
-        self._pool.start(RenderJob(spec, generation, self._max_width, signals, self._directory))
+        return generation, signals
+
+    def submit(self, spec: RenderSpec) -> None:
+        generation, signals = self._start()
+        self._pool.start(RenderJob(
+            spec, generation, self._max_width, signals, self._directory, self._library
+        ))
+
+    def load(self, path: Path) -> None:
+        generation, signals = self._start()
+        self._pool.start(LoadJob(path, generation, signals))
+
+    def invalidate(self) -> None:
+        """Prevent pending work from replacing an explicitly cleared selection."""
+        self._generation += 1
+        self._set_busy(False)
 
     def wait_for_done(self) -> None:
         self._pool.waitForDone()
@@ -134,6 +173,7 @@ class RenderController(QObject):
 
     def _on_finished(self, generation: int, image: QImage, path: Path) -> None:
         self._live.pop(generation, None)
+        self.library_changed.emit()
         if generation != self._generation:
             return
         self._set_busy(False)

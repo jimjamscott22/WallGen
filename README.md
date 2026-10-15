@@ -58,16 +58,25 @@ Run anyway*.
 
 ## Using it
 
-Milestone 3 is implemented: **Generate** shows a quick preview, renders the selected
+Milestones 3 and 4 are implemented: **Generate** shows a quick preview, renders the selected
 full resolution in the background, and saves a unique PNG under
 `%LOCALAPPDATA%\WallGen\library`. **Set on all monitors** becomes available once
 that render is saved and applies the displayed image across the desktop. Editing
 controls does not change the image until you generate again. Progress and any
 generation or wallpaper-setting errors appear beside the button.
 
-The library strip is still placeholder content. Library browsing and per-monitor
-selection are planned for milestones 4 and 5. The layout and interactions below
-describe the completed v1 design.
+The library now stores the full generation settings in `%LOCALAPPDATA%\WallGen\wallgen.db`
+and thumbnails in `thumbs`. It reloads your renders when you reopen the app.
+Search by style, palette, seed or custom text; use **Favorites only** to narrow the
+grid and **Load more** to browse beyond the first 100 items. Double-click a thumbnail
+to restore its settings and saved full-resolution image without regenerating.
+Right-click to favorite, re-render at a preset size, open the folder, or delete.
+
+Deletion asks for confirmation. PNGs that have been applied as wallpaper stay on
+disk for Windows even after their library entry is deleted. Older PNGs from
+milestone 3 remain untouched and unlisted because their settings were not saved.
+Per-monitor selection is planned for milestone 5. The mockup below shows the planned
+completed v1 layout.
 
 <!-- Swap this for a real screenshot once the window exists — and consider a short GIF of
      pressing the re-roll button a few times, which sells the app better than any still. -->

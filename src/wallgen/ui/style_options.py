@@ -166,3 +166,17 @@ class StyleOptionsPanel(QFrame):
 
     def editor(self, key: str) -> QWidget:
         return self._editors[key][1]
+
+    def load_spec(self, spec: RenderSpec) -> None:
+        """Restore every style's fields, including currently hidden pages."""
+        for key, (field, editor) in self._editors.items():
+            value = getattr(spec, key)
+            if field.kind == "line":
+                editor.setText(value)
+            elif field.kind == "text":
+                editor.setPlainText(value)
+            elif field.kind == "choice":
+                editor.setCurrentText(value)
+            else:
+                editor.setChecked(value)
+        self.set_style(spec.style)
