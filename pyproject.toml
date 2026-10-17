@@ -7,6 +7,7 @@ dependencies = [
     "pyside6>=6.11",
     "pillow>=11",
     "numpy>=2",
+    "comtypes>=1.4 ; sys_platform == 'win32'",
 ]
 
 [project.scripts]

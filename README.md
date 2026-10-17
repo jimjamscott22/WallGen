@@ -58,7 +58,7 @@ Run anyway*.
 
 ## Using it
 
-Milestones 3 and 4 are implemented: **Generate** shows a quick preview, renders the selected
+Milestones 3–5 are implemented: **Generate** shows a quick preview, renders the selected
 full resolution in the background, and saves a unique PNG under
 `%LOCALAPPDATA%\WallGen\library`. **Set on all monitors** becomes available once
 that render is saved and applies the displayed image across the desktop. Editing
@@ -75,8 +75,16 @@ Right-click to favorite, re-render at a preset size, open the folder, or delete.
 Deletion asks for confirmation. PNGs that have been applied as wallpaper stay on
 disk for Windows even after their library entry is deleted. Older PNGs from
 milestone 3 remain untouched and unlisted because their settings were not saved.
-Per-monitor selection is planned for milestone 5. The mockup below shows the planned
-completed v1 layout.
+
+Each connected monitor appears as a chip beside **Set on all monitors**, showing its
+physical resolution. A chip's light is on when the displayed render already matches
+that monitor; clicking it sets the wallpaper on that monitor only. Clicking a chip
+for a different-sized monitor re-renders the same design (same seed and settings) at
+that monitor's native size, saves it to the library, then sets it. Monitor
+resolutions are also listed at the top of the **Size** menu, and the chips refresh
+when you plug in, unplug, or rearrange displays. Per-monitor setting needs Windows 8
+or later; elsewhere only **Set on all monitors** is shown. The mockup below shows the
+planned completed v1 layout.
 
 <!-- Swap this for a real screenshot once the window exists — and consider a short GIF of
      pressing the re-roll button a few times, which sells the app better than any still. -->

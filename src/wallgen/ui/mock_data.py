@@ -1,11 +1,4 @@
-"""Placeholder content standing in for the SQLite library and Windows
-monitor detection until those subsystems exist (spec §4, §5)."""
-
-MOCK_MONITORS = [
-    {"name": "All", "resolution": "", "active": True},
-    {"name": "DELL U2719", "resolution": "2560 x 1440", "active": False},
-    {"name": "LG 24MK", "resolution": "1920 x 1080", "active": False},
-]
+"""Placeholder library content from before the SQLite library existed (spec §5)."""
 
 MOCK_LIBRARY = [
     {"style": "pcb", "dot": "#45E0E8", "art": "#0E1C24"},
