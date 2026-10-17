@@ -83,6 +83,7 @@ def _com() -> SimpleNamespace:
     free.restype = None
     return SimpleNamespace(
         COMError=COMError,
+        interface=IDesktopWallpaper,
         create=lambda: CoCreateInstance(GUID(CLSID_DESKTOP_WALLPAPER), interface=IDesktopWallpaper),
         free=free,
     )

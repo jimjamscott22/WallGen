@@ -1,4 +1,5 @@
 import ctypes
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -160,3 +161,13 @@ def test_com_wrapper_turns_com_errors_into_os_errors():
     wrapper, _ = _wrapped(raw)
     with pytest.raises(OSError, match="0x80070005"):
         wrapper.set_wallpaper("id", "C:/x.png")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="comtypes is installed on Windows only")
+def test_real_comtypes_accepts_the_interface_in_idl_order():
+    interface = desktop._com().interface
+    assert [method.name for method in interface._methods_] == [
+        "SetWallpaper", "GetWallpaper", "GetMonitorDevicePathAt", "GetMonitorDevicePathCount",
+        "GetMonitorRECT", "SetBackgroundColor", "GetBackgroundColor", "SetPosition", "GetPosition",
+    ]
+    assert str(interface._iid_) == desktop.IID_DESKTOP_WALLPAPER
