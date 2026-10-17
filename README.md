@@ -140,7 +140,15 @@ uv run wallgen render --style pcb --size 3440x1440 --palette amber \
 
 uv run wallgen render --style terminal --script session.txt --user "me@desktop"
 uv run wallgen list          # every size preset, palette, and style
+uv run wallgen render --help # every option, grouped by style
 ```
+
+`--size` takes a preset name or `WIDTHxHEIGHT`. Leave out `--seed` for a random layout;
+the seed that was used is printed so you can reproduce it. Without `--out`, the file is
+named `wallpaper-STYLE-WxH-SEED.png` in the current folder. The CLI doesn't load Qt, so
+it runs on machines without a display. `WallGen.exe` accepts the same commands, but it's
+a windowed program with no console, so it prints nothing; use `uv run wallgen` when you
+want to see the output.
 
 A terminal session file looks like this:
 
