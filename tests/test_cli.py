@@ -30,7 +30,10 @@ def test_sizes_accept_presets_and_dimensions(text, size):
     assert cli.parse_size(text) == size
 
 
-@pytest.mark.parametrize("text", ["99", "wide", "0x100", "100x-5", "20000x1080", "1920x1080x2"])
+@pytest.mark.parametrize("text", [
+    "99", "wide", "0x100", "100x-5", "20000x1080", "1920x1080x2",
+    "16384x16384", "8000x4320",  # over the 8K pixel budget
+])
 def test_bad_sizes_are_usage_errors(capsys, text):
     code, _, err = run(capsys, "render", "--size", text)
     assert code == 2
@@ -155,3 +158,33 @@ def test_the_cli_never_imports_qt():
     probe = "import sys, wallgen.__main__, wallgen.cli; print(any(m.startswith('PySide6') for m in sys.modules))"
     result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == "False"
+
+
+@pytest.mark.parametrize("text", ["7680x4320", "16384x2025", "uw-4k", "suw-1440"])
+def test_sizes_up_to_the_8k_pixel_budget_are_allowed(text):
+    width, height = cli.parse_size(text)
+    assert width * height <= cli.MAX_PIXELS
+
+
+def test_oversized_renders_explain_the_memory_budget(capsys):
+    code, _, err = run(capsys, "render", "--size", "16384x16384")
+    assert code == 2 and "268 megapixels" in err and "8K" in err
+
+
+def test_running_out_of_memory_exits_1_with_a_message(capsys, here, monkeypatch):
+    def huge(spec, progress=None):
+        raise MemoryError
+
+    monkeypatch.setattr(cli, "render", huge)
+    code, _, err = run(capsys, "render", "--size", "4k")
+    assert code == 1 and "ran out of memory rendering 3840x2160" in err
+
+
+def test_a_code_file_of_only_line_breaks_renders_the_sample(capsys, here):
+    (here / "blank.py").write_text("\n\n", encoding="utf-8")
+    code, _, _ = run(capsys, "render", "--style", "codeblock", "--size", "320x180",
+                     "--seed", "2", "--code", "blank.py", "--out", "blank.png")
+    assert code == 0
+    expected = render(RenderSpec(style="codeblock", width=320, height=180, seed=2))
+    with Image.open(here / "blank.png") as saved:
+        assert saved.tobytes() == expected.tobytes()

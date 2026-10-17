@@ -26,3 +26,12 @@ def test_render_codeblock_reports_monotonic_progress():
     render_codeblock(ctx, spec, lambda fraction, note: calls.append(fraction))
     assert len(calls) >= 3
     assert calls == sorted(calls)
+
+
+def test_line_breaks_only_render_like_empty_code():
+    # Regression: "\n" left one zero-width line and divided by zero.
+    def draw(code_text):
+        spec = RenderSpec(style="codeblock", width=480, height=270, seed=4, code_text=code_text)
+        return render_codeblock(Ctx(spec), spec, lambda fraction, note: None).tobytes()
+
+    assert draw("\n") == draw("\n\n\n") == draw("")

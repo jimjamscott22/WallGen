@@ -23,6 +23,9 @@ from wallgen.engine.spec import QuietZone, Style
 
 COMMANDS = ("render", "list")
 MAX_SEED = 2**31 - 1  # the GUI's seed field accepts the same range
+# Rendering peaks at roughly 90 MB per megapixel, so 8K (33 MP) needs about
+# 3 GB. Every preset and an 8K monitor fit; 16384x16384 would need ~24 GB.
+MAX_PIXELS = 7680 * 4320
 _SIZE = re.compile(r"(\d+)\s*[x×]\s*(\d+)", re.IGNORECASE)
 
 
@@ -38,6 +41,11 @@ def parse_size(text: str) -> tuple[int, int]:
     width, height = int(match.group(1)), int(match.group(2))
     if not (16 <= width <= 16384 and 16 <= height <= 16384):
         raise argparse.ArgumentTypeError(f"{width}x{height} is outside 16..16384 per side")
+    if width * height > MAX_PIXELS:
+        raise argparse.ArgumentTypeError(
+            f"{width}x{height} is {width * height / 1e6:.0f} megapixels; the limit is "
+            f"{MAX_PIXELS / 1e6:.0f} (8K), which already needs about 3 GB of memory"
+        )
     return width, height
 
 
@@ -160,6 +168,11 @@ def _render(args: argparse.Namespace) -> int:
     except EngineError as exc:
         clear()
         _print(f"wallgen: render failed: {exc}", sys.stderr)
+        return 1
+    except MemoryError:
+        clear()
+        _print(f"wallgen: ran out of memory rendering {spec.width}x{spec.height}; "
+               "try a smaller size", sys.stderr)
         return 1
     clear()
     try:

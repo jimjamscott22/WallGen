@@ -36,7 +36,8 @@ TOKEN_RE = re.compile(r"""
 
 def render_codeblock(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
     W, H, p, S = ctx.W, ctx.H, ctx.pal, ctx.S
-    lines = (spec.code_text or DEFAULT_CODE).rstrip("\n").split("\n")
+    # Text that is only line breaks counts as empty: it would leave no columns.
+    lines = (spec.code_text.rstrip("\n") or DEFAULT_CODE.rstrip("\n")).split("\n")
     cols = max(len(l) for l in lines)
     nrows = len(lines)
 
