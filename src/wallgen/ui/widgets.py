@@ -144,12 +144,18 @@ class RerollDial(QAbstractButton):
 
 
 class MonitorChip(QFrame):
-    """A labeled port on the 'Set on' row — a detected monitor, or 'All'."""
+    """A labeled port on the 'Set on' row — a detected monitor, or 'All'.
+
+    Clickable like a button (mouse, Space or Enter) and emits `clicked`.
+    "Active" lights the port: the displayed render already fits this monitor.
+    """
+
+    clicked = Signal()
 
     def __init__(self, name: str, resolution: str, active: bool = False, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setProperty("role", "chip-active" if active else "chip")
-        self._active = active
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(16, 8, 16, 8)
@@ -157,8 +163,8 @@ class MonitorChip(QFrame):
 
         top_row = QHBoxLayout()
         top_row.addStretch(1)
-        dot_color = theme.VERDIGRIS if active else theme.TEXT_MUTED
-        top_row.addWidget(StatusDot(dot_color, glow=active))
+        self._dot = StatusDot(theme.TEXT_MUTED, glow=True)
+        top_row.addWidget(self._dot)
         outer.addLayout(top_row)
 
         name_label = QLabel(name)
@@ -171,12 +177,35 @@ class MonitorChip(QFrame):
             outer.addWidget(res_label)
 
         self._name_label = name_label
+        self._active = not active  # force set_active to apply the initial state
+        self.set_active(active)
 
     def is_active(self) -> bool:
         return self._active
 
+    def set_active(self, active: bool) -> None:
+        if active == self._active:
+            return
+        self._active = active
+        self.setProperty("role", "chip-active" if active else "chip")
+        self._dot.set_color(theme.VERDIGRIS if active else theme.TEXT_MUTED)
+        self._dot.graphicsEffect().setEnabled(active)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
     def name_text(self) -> str:
         return self._name_label.text()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+            self.clicked.emit()
+            return
+        super().keyPressEvent(event)
 
 
 class LibraryThumbnail(QFrame):
