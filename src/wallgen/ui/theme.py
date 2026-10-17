@@ -97,6 +97,15 @@ def stylesheet() -> str:
         border: 1px solid {COPPER};
         border-radius: 3px;
     }}
+    QFrame[role="chip"]:hover, QFrame[role="chip"]:focus {{
+        border-color: {COPPER_DARK};
+    }}
+    QFrame[role="chip-active"]:hover, QFrame[role="chip-active"]:focus {{
+        border-color: {COPPER_LIGHT};
+    }}
+    QFrame[role="chip"]:disabled QLabel {{
+        color: {TEXT_MUTED};
+    }}
     QFrame[role="sprocket"] {{
         background: {HAIRLINE};
         border: none;

@@ -129,3 +129,37 @@ def test_progress_track_paints_the_fill(qtbot):
     track.set_fraction(0.5)
     partial = track.grab().toImage()
     assert partial != idle
+
+
+def test_monitor_chip_click_and_keyboard_emit_clicked(qtbot):
+    chip = MonitorChip("DELL U2719", "2560 x 1440")
+    qtbot.addWidget(chip)
+    with qtbot.waitSignal(chip.clicked, timeout=1000):
+        qtbot.mouseClick(chip, Qt.LeftButton)
+    with qtbot.waitSignal(chip.clicked, timeout=1000):
+        qtbot.keyClick(chip, Qt.Key_Space)
+
+
+def test_disabled_monitor_chip_does_not_emit(qtbot):
+    chip = MonitorChip("DELL U2719", "2560 x 1440")
+    qtbot.addWidget(chip)
+    chip.setEnabled(False)
+    with qtbot.assertNotEmitted(chip.clicked):
+        qtbot.mouseClick(chip, Qt.LeftButton)
+
+
+def test_monitor_chip_set_active_updates_role_and_led(qtbot):
+    from wallgen.ui import theme
+    from wallgen.ui.widgets import StatusDot
+
+    chip = MonitorChip("DELL U2719", "2560 x 1440")
+    qtbot.addWidget(chip)
+    dot = chip.findChild(StatusDot)
+    assert dot.color() == theme.TEXT_MUTED
+    assert not dot.graphicsEffect().isEnabled()
+    chip.set_active(True)
+    assert chip.is_active() and chip.property("role") == "chip-active"
+    assert dot.color() == theme.VERDIGRIS
+    assert dot.graphicsEffect().isEnabled()
+    chip.set_active(False)
+    assert chip.property("role") == "chip"

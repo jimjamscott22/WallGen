@@ -2,7 +2,8 @@
 
 Generate, the reroll dial, the preview pane, the progress track and the style
 options are live: they build a RenderSpec and render a preview off-thread via
-RenderController. Full renders are saved and can be set on all monitors.
+RenderController. Full renders are saved and can be set on all monitors,
+or on one detected monitor (re-rendered at its native size when needed).
 The library restores saved images and their full generation settings.
 """
 
@@ -13,7 +14,8 @@ from pathlib import Path
 import sqlite3
 from typing import get_args
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -27,7 +29,8 @@ from PySide6.QtWidgets import (
 
 from wallgen.engine import PALETTES, SIZES, RenderSpec
 from wallgen.engine.spec import QuietZone
-from wallgen.platform_win.desktop import set_on_all_monitors
+from wallgen.platform_win.desktop import set_on_all_monitors, set_on_monitor
+from wallgen.platform_win.monitors import Monitor, ScreenGeometry, detect_monitors
 from wallgen.store.db import LibraryStore
 from wallgen.ui import theme
 from wallgen.ui.jobs import DEFAULT_PREVIEW_WIDTH, RenderController
@@ -35,6 +38,7 @@ from wallgen.ui.library_panel import LibraryPanel
 from wallgen.ui.preview_pane import PreviewPane
 from wallgen.ui.style_options import STYLE_LABELS, STYLE_ORDER, StyleOptionsPanel
 from wallgen.ui.widgets import (
+    MonitorChip,
     ProgressTrack,
     RerollDial,
     SeedField,
@@ -44,6 +48,26 @@ from wallgen.ui.widgets import (
 QUIET_ZONES = get_args(QuietZone)
 DEFAULT_SIZE_KEY = "1440p"
 DEFAULT_SEED = 20260813
+# Marks size-combo entries that come from detected monitors, so a refresh can
+# replace them without touching the presets or a loaded custom size.
+MONITOR_ITEM_ROLE = Qt.UserRole + 1
+# Windows sends several screen-change events while a display settles.
+MONITOR_REFRESH_DELAY_MS = 750
+
+
+def _screen_geometries() -> list[ScreenGeometry]:
+    """Qt's view of the screens, as plain data for monitor matching."""
+    result = []
+    for screen in QGuiApplication.screens():
+        geometry = screen.geometry()
+        name = screen.name()
+        # "\\.\DISPLAY1" is an adapter port, not a name worth showing.
+        label = screen.model().strip() or ("" if name.startswith("\\\\.\\") else name)
+        result.append(ScreenGeometry(
+            label, geometry.x(), geometry.y(), geometry.width(), geometry.height(),
+            screen.devicePixelRatio(),
+        ))
+    return result
 
 
 def _labeled_field(label_text: str, value_widget: QWidget) -> QWidget:
@@ -85,8 +109,17 @@ class MainWindow(QMainWindow):
 
         self.library = LibraryStore(render_directory)
         self.controller = RenderController(max_width=preview_max_width, parent=self, library=self.library)
+        # The displayed full-resolution render, which the Set buttons apply.
         self._render_path: Path | None = None
+        self._render_size: tuple[int, int] | None = None
+        self._render_spec: RenderSpec | None = None
+        # The spec of the newest submitted render or load.
+        self._requested_spec: RenderSpec | None = None
+        # A monitor waiting for a render at its size, set once that lands.
+        self._pending_monitor: Monitor | None = None
         self._loading_id: str | None = None
+        self.monitors: list[Monitor] = []
+        self.monitor_chips: list[MonitorChip] = []
 
         root = QWidget()
         root.setObjectName("root")
@@ -107,6 +140,8 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_library_row())
 
         self._connect_controller()
+        self._watch_screens()
+        self.refresh_monitors()
         self.library_panel.refresh()
 
     def _build_header(self) -> QWidget:
@@ -219,6 +254,10 @@ class MainWindow(QMainWindow):
         self.set_all_button.setToolTip("Applies the displayed full-resolution render to all monitors.")
         self.set_all_button.clicked.connect(self._on_set_all)
         layout.addWidget(self.set_all_button)
+        # One chip per detected monitor; filled by refresh_monitors().
+        self.monitor_bar = QHBoxLayout()
+        self.monitor_bar.setSpacing(10)
+        layout.addLayout(self.monitor_bar)
         self.render_status = QLabel("Generate a wallpaper to get started.")
         self.render_status.setProperty("role", "field-label")
         self.render_status.setWordWrap(True)
@@ -276,8 +315,9 @@ class MainWindow(QMainWindow):
         except (OSError, ValueError, sqlite3.Error) as exc:
             self.render_status.setText(f"Could not load wallpaper: {exc}")
             return
-        self._render_path = None
-        self.set_all_button.setEnabled(False)
+        self._pending_monitor = None
+        self._requested_spec = entry.spec
+        self._clear_render()
         self.render_status.setText("Loading saved wallpaper…")
         self._loading_id = item_id
         self.controller.load(self.library.image_path(item_id))
@@ -297,47 +337,152 @@ class MainWindow(QMainWindow):
             self._render_path is not None and self._render_path.stem == item_id
         ):
             self.controller.invalidate()
-            self._render_path = None
+            self._pending_monitor = None
             self._loading_id = None
-            self.set_all_button.setEnabled(False)
+            self._clear_render()
 
     def _on_generate(self) -> None:
-        self._render_path = None
+        spec = self.current_spec()
         self._loading_id = None
-        self.set_all_button.setEnabled(False)
+        self._pending_monitor = None
+        self._requested_spec = spec
+        self._clear_render()
         self.render_status.setText("Rendering preview…")
-        self.controller.submit(self.current_spec())
+        self.controller.submit(spec)
 
     def _on_full_ready(self, image, path: Path) -> None:
         self._render_path = path
+        self._render_size = (image.width(), image.height())
+        self._render_spec = self._requested_spec
         self._loading_id = None
         self.preview_pane.show_image(image)
-        self.set_all_button.setEnabled(True)
+        self._update_set_controls()
         self.render_status.setText(f"Ready · {image.width()} × {image.height()}")
+        monitor, self._pending_monitor = self._pending_monitor, None
+        if monitor is not None:
+            self._set_on_monitor(monitor)
 
     def _on_failed(self, message: str) -> None:
-        self._render_path = None
+        self._pending_monitor = None
         self._loading_id = None
-        self.set_all_button.setEnabled(False)
+        self._clear_render()
         self.preview_pane.show_error(message)
         self.render_status.setText(f"Generation failed: {message}")
 
-    def _on_set_all(self) -> None:
+    def _clear_render(self) -> None:
+        self._render_path = None
+        self._render_size = None
+        self._render_spec = None
+        self._update_set_controls()
+
+    def _update_set_controls(self) -> None:
+        ready = self._render_path is not None
+        self.set_all_button.setEnabled(ready)
+        for chip, monitor in zip(self.monitor_chips, self.monitors):
+            chip.setEnabled(ready)
+            # Lit when the displayed render is already this monitor's native size.
+            chip.set_active(ready and self._render_size == monitor.size)
+
+    # -- monitors -----------------------------------------------------------
+
+    def _watch_screens(self) -> None:
+        self._monitor_timer = QTimer(self)
+        self._monitor_timer.setSingleShot(True)
+        self._monitor_timer.setInterval(MONITOR_REFRESH_DELAY_MS)
+        self._monitor_timer.timeout.connect(self.refresh_monitors)
+        app = QGuiApplication.instance()
+        app.screenAdded.connect(self._on_screen_added)
+        app.screenRemoved.connect(self._schedule_monitor_refresh)
+        for screen in app.screens():
+            screen.geometryChanged.connect(self._schedule_monitor_refresh)
+
+    def _on_screen_added(self, screen) -> None:
+        screen.geometryChanged.connect(self._schedule_monitor_refresh)
+        self._schedule_monitor_refresh()
+
+    def _schedule_monitor_refresh(self, *_) -> None:
+        self._monitor_timer.start()
+
+    def refresh_monitors(self) -> None:
+        """Re-detect displays, then rebuild the chips and monitor sizes."""
+        self.monitors = detect_monitors(_screen_geometries())
+        for chip in self.monitor_chips:
+            self.monitor_bar.removeWidget(chip)
+            chip.deleteLater()
+        self.monitor_chips = []
+        for monitor in self.monitors:
+            chip = MonitorChip(monitor.label, monitor.resolution)
+            chip.setToolTip(
+                f"Set on {monitor.label}. If the displayed render is a different size, "
+                f"it is re-rendered at {monitor.width} × {monitor.height} first."
+            )
+            chip.clicked.connect(lambda monitor=monitor: self._on_monitor_clicked(monitor))
+            self.monitor_bar.addWidget(chip)
+            self.monitor_chips.append(chip)
+        if self._pending_monitor not in self.monitors:
+            self._pending_monitor = None
+        self._update_monitor_sizes()
+        self._update_set_controls()
+
+    def _update_monitor_sizes(self) -> None:
+        """Offer each monitor's native resolution at the top of the size list."""
+        combo = self.size_combo
+        current = combo.currentData()
+        for index in reversed(range(combo.count())):
+            if combo.itemData(index, MONITOR_ITEM_ROLE):
+                combo.removeItem(index)
+        for index, monitor in enumerate(self.monitors):
+            combo.insertItem(index, f"{monitor.label} · {monitor.width} x {monitor.height}", monitor.size)
+            combo.setItemData(index, True, MONITOR_ITEM_ROLE)
+        if self.monitors:
+            combo.insertSeparator(len(self.monitors))
+            combo.setItemData(len(self.monitors), True, MONITOR_ITEM_ROLE)
+        index = combo.findData(current)
+        combo.setCurrentIndex(index if index >= 0 else combo.findData(DEFAULT_SIZE_KEY))
+
+    def _on_monitor_clicked(self, monitor: Monitor) -> None:
         if self._render_path is None:
             return
+        if self._render_size == monitor.size:
+            self._set_on_monitor(monitor)
+            return
+        if self._render_spec is None:
+            self.render_status.setText("Generate again to render this wallpaper for that monitor.")
+            return
+        # Same design at the monitor's physical size; set it once it is saved.
+        self.load_spec(self._render_spec.at(*monitor.size))
+        self._on_generate()
+        self._pending_monitor = monitor
+        self.render_status.setText(
+            f"Rendering {monitor.width} × {monitor.height} for {monitor.label}…"
+        )
+
+    # -- setting the wallpaper ----------------------------------------------
+
+    def _on_set_all(self) -> None:
+        self._apply(lambda path: set_on_all_monitors(path), "all monitors")
+
+    def _set_on_monitor(self, monitor: Monitor) -> None:
+        self._apply(lambda path: set_on_monitor(path, monitor.device_path), monitor.label)
+
+    def _apply(self, set_wallpaper, where: str) -> None:
+        path = self._render_path
+        if path is None:
+            return
         try:
-            set_on_all_monitors(self._render_path)
+            set_wallpaper(path)
         except OSError as exc:
             self.render_status.setText(f"Could not set wallpaper: {exc}")
+            return
+        try:
+            self.library.mark_set(path.stem)
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            self.render_status.setText(f"Wallpaper set; could not update library: {exc}")
         else:
-            try:
-                self.library.mark_set(self._render_path.stem)
-            except (OSError, ValueError, sqlite3.Error) as exc:
-                self.render_status.setText(f"Wallpaper set; could not update library: {exc}")
-            else:
-                self.render_status.setText("Wallpaper set on all monitors.")
+            self.render_status.setText(f"Wallpaper set on {where}.")
 
     def closeEvent(self, event) -> None:
+        self._monitor_timer.stop()
         # Keep the controller and its signal objects alive until workers finish.
         self.controller.wait_for_done()
         super().closeEvent(event)
