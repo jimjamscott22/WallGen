@@ -46,8 +46,10 @@ def _window() -> str:
 
 
 def _com() -> str:
-    desktop._com()
-    return "IDesktopWallpaper declared"
+    com = desktop._com()
+    wrapper = desktop._ComDesktop(com.create(), com)
+    ids = wrapper.monitor_ids()
+    return f"IDesktopWallpaper active ({len(ids)} monitor ID(s))"
 
 
 def run() -> int:
