@@ -9,6 +9,9 @@ Project uses `uv` (Python >=3.12, src layout, hatchling). A `.venv` is checked o
 ```bash
 uv sync                                   # install deps incl. dev group (pytest, pytest-qt)
 uv run wallgen                            # launch the PySide6 GUI (wallgen.__main__:main)
+uv run wallgen render --style pcb --seed 7 --size 1280x720   # CLI render, no Qt (wallgen/cli.py)
+uv run wallgen list                       # presets, palettes, styles
+uv run --group build pyinstaller packaging/wallgen.spec --noconfirm --clean   # dist/WallGen/WallGen.exe
 uv run pytest                             # full suite
 uv run pytest tests/engine/test_style_pcb.py::test_name   # single test
 uv run pytest tests/ui                    # one area (engine / ui / store tests)
@@ -26,7 +29,7 @@ Windows-only desktop app: seeded procedural wallpaper generator. Four layers und
 
 - **`engine/`** — pure rendering. No Qt, no win32, no disk writes. `engine.render(spec)` / `engine.preview(spec, max_width)` take a frozen `RenderSpec` (`engine/spec.py`, also holds `SIZES` and `PALETTES`) and return a `PIL.Image`. `render` builds a `Ctx` (`engine/ctx.py`) and dispatches via the `_STYLES` dict in `engine/__init__.py` to one function per style in `engine/styles/` (`pcb`, `coderain`, `terminal`, `codeblock`). Adding a style means a new module there, a `Style` literal entry in `spec.py`, and a `_STYLES` entry.
 - **`store/`** — persistence. `LibraryStore` (`store/db.py`) is SQLite (`user_version` schema migration, one connection per operation so worker threads are safe); `store/paths.py` resolves `%LOCALAPPDATA%\WallGen` (`library/` PNGs, `thumbs/`, `wallgen.db`).
-- **`platform_win/`** — Windows wallpaper setting (`desktop.py`, ctypes `SystemParametersInfoW`; sets one image on all monitors).
+- **`platform_win/`** — Windows integration. `desktop.py` declares `IDesktopWallpaper` via comtypes (vtable order is load-bearing) for per-monitor setting, with `SystemParametersInfoW` as the all-monitors fallback; COM is used only on the GUI thread. `monitors.py` enumerates monitors in physical pixels and names them by geometry-matching Qt screens; it stays Qt-free.
 - **`ui/`** — PySide6 window (`main_window.py`) plus panels/widgets. `ui/jobs.py` is the bridge to the engine: `RenderController` runs `RenderJob`s on a `QThreadPool` (max 2 threads), emits a half-size preview first then the full render, and drops stale results by a generation counter (every `submit()`/`load()`/`invalidate()` bumps it). Nothing from engine/disk work may run on the GUI thread; `RenderJob.run` catches all exceptions and reports them via the `failed` signal.
 
 ### Key design invariants
@@ -38,6 +41,6 @@ Windows-only desktop app: seeded procedural wallpaper generator. Four layers und
 
 ## Docs and project state
 
-- Work proceeds in milestones; design specs and plans live in `docs/superpowers/{specs,plans}/` and the overall product spec in `docs/wallgen-spec.md`. Milestones 3 (live threaded preview + full-res render) and 4 (library) are implemented; per-monitor selection (M5) is planned.
-- `README.md` describes some things not yet implemented: the `wallgen render` / `wallgen list` CLI (current `__main__` only launches the GUI), per-monitor wallpapers via `IDesktopWallpaper` COM (current code uses `SystemParametersInfoW`), and a `comtypes` dependency (not in `pyproject.toml`). Treat the code as the source of truth.
+- Work proceeds in milestones; design specs and plans live in `docs/superpowers/{specs,plans}/` and the overall product spec in `docs/wallgen-spec.md`. All six v1 milestones are implemented: preview + full-res render (M2–3), library (M4), per-monitor wallpapers (M5), and packaging (M6: `packaging/wallgen.spec`, `WallGen.exe --self-test`, Windows CI in `.github/workflows/windows-build.yml`).
+- `wallgen.__main__` dispatches `render`/`list` to `cli.py` before importing Qt; keep Qt imports out of `cli.py` and the top of `__main__.py`. `comtypes` is a Windows-only dependency, so Windows-only code imports it lazily. Treat the code as the source of truth.
 - `.claude/hooks/conventional-commits.py` is a no-op PreToolUse stub; commits in history follow Conventional Commits (`feat:`, `fix:`).

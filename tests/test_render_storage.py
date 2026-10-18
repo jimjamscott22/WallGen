@@ -29,3 +29,31 @@ def test_incomplete_save_is_cleaned(monkeypatch, tmp_path):
     with pytest.raises(OSError, match="disk full"):
         save_render(Image.new("RGB", (1, 1)), tmp_path)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_data_dir_follows_localappdata(monkeypatch, tmp_path):
+    from wallgen.store.paths import data_dir
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert data_dir() == tmp_path / "WallGen"
+    assert library_dir().parent == data_dir()
+
+
+def test_first_run_creates_the_data_folders(monkeypatch, tmp_path):
+    from wallgen.store.paths import ensure_data_dirs
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    root = ensure_data_dirs()
+    assert root == tmp_path / "WallGen"
+    assert (root / "library").is_dir() and (root / "thumbs").is_dir()
+    assert sorted(p.name for p in root.iterdir()) == ["library", "thumbs"]  # probe removed
+    assert ensure_data_dirs() == root  # idempotent
+
+
+def test_data_folder_errors_name_the_problem(tmp_path):
+    from wallgen.store.paths import ensure_data_dirs
+
+    blocker = tmp_path / "WallGen"
+    blocker.write_text("a file where the folder should be")
+    with pytest.raises(OSError):
+        ensure_data_dirs(blocker)

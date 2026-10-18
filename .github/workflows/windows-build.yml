@@ -1,0 +1,51 @@
+name: Windows build
+
+# Tests on the platform WallGen targets, then builds WallGen.exe, proves the
+# build starts with --self-test, and uploads it as a downloadable artifact.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --locked --group build
+
+      - name: Test
+        run: uv run pytest -q
+
+      - name: Build WallGen.exe
+        run: uv run --group build pyinstaller packaging/wallgen.spec --noconfirm --clean
+
+      - name: Self-test the build
+        shell: pwsh
+        timeout-minutes: 5  # a windowed build that errors would sit on a dialog
+        run: |
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP "wallgen-appdata"
+          $run = Start-Process dist\WallGen\WallGen.exe -ArgumentList "--self-test" -Wait -PassThru
+          Get-Content (Join-Path $env:LOCALAPPDATA "WallGen\self-test.log")
+          $size = (Get-ChildItem dist\WallGen -Recurse | Measure-Object Length -Sum).Sum / 1MB
+          "Bundle size: {0:N0} MB" -f $size
+          exit $run.ExitCode
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WallGen-windows
+          path: dist/WallGen
+          if-no-files-found: error
+          retention-days: 14
