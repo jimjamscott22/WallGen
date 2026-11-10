@@ -17,16 +17,19 @@ SPEC_KEYS = {
     "glyphs",
     "user", "title", "session_text",
     "code_text", "caption", "gutter", "cursor",
+    "blueprint_layout", "contour_layout",
 }
 
 
-def test_style_order_and_labels_cover_all_four_styles():
-    assert STYLE_ORDER == ["pcb", "coderain", "terminal", "codeblock"]
+def test_style_order_and_labels_cover_all_styles():
+    assert STYLE_ORDER == ["pcb", "coderain", "terminal", "codeblock", "blueprint", "contour"]
     assert STYLE_LABELS == {
         "pcb": "PCB",
         "coderain": "Code rain",
         "terminal": "Terminal",
         "codeblock": "Code block",
+        "blueprint": "Blueprint",
+        "contour": "Contour",
     }
 
 

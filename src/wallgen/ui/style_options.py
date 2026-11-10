@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -16,14 +16,17 @@ from PySide6.QtWidgets import (
 )
 
 from wallgen.engine import RenderSpec
+from wallgen.engine.spec import BlueprintLayout, ContourLayout
 
-STYLE_ORDER = ["pcb", "coderain", "terminal", "codeblock"]
+STYLE_ORDER = ["pcb", "coderain", "terminal", "codeblock", "blueprint", "contour"]
 
 STYLE_LABELS = {
     "pcb": "PCB",
     "coderain": "Code rain",
     "terminal": "Terminal",
     "codeblock": "Code block",
+    "blueprint": "Blueprint",
+    "contour": "Contour",
 }
 
 _DEFAULTS = RenderSpec()
@@ -63,6 +66,14 @@ FIELDS_BY_STYLE: dict[str, list[Field]] = {
         Field("code_text", "Code", "text", placeholder="Empty = built-in demo snippet"),
         Field("gutter", "Line-number gutter", "check", default=_DEFAULTS.gutter),
         Field("cursor", "Cursor", "check", default=_DEFAULTS.cursor),
+    ],
+    "blueprint": [
+        Field("blueprint_layout", "Layout", "choice", choices=get_args(BlueprintLayout),
+              default=_DEFAULTS.blueprint_layout),
+    ],
+    "contour": [
+        Field("contour_layout", "Layout", "choice", choices=get_args(ContourLayout),
+              default=_DEFAULTS.contour_layout),
     ],
 }
 

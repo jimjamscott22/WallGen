@@ -1,6 +1,7 @@
 import io
 import subprocess
 import sys
+from typing import get_args
 
 import pytest
 from PIL import Image
@@ -8,6 +9,7 @@ from PIL import Image
 import wallgen.__main__ as wallgen_main
 from wallgen import cli
 from wallgen.engine import PALETTES, SIZES, EngineError, RenderSpec, render
+from wallgen.engine.spec import Style
 
 
 @pytest.fixture
@@ -52,7 +54,7 @@ def test_list_prints_every_size_palette_and_style(capsys):
     for key, (w, h) in SIZES.items():
         assert f"{key}" in out and f"{w}x{h}" in out
     assert all(palette in out for palette in PALETTES)
-    assert all(style in out for style in ("pcb", "coderain", "terminal", "codeblock"))
+    assert out.split("STYLES\n", 1)[1].split() == list(get_args(Style))
 
 
 def test_every_flag_reaches_the_spec(tmp_path):
@@ -95,6 +97,22 @@ def test_omitted_seed_is_random_and_reported(capsys, here):
     seed = int(out.split("seed=")[1])
     assert 0 <= seed <= cli.MAX_SEED
     assert (here / "x.png").is_file()
+
+
+@pytest.mark.parametrize("style, default, alternate", [
+    ("blueprint", "centered", "offset"),
+    ("contour", "ridge", "island"),
+])
+def test_layout_flag_changes_default_filename_and_render(capsys, here, style, default, alternate):
+    args = ("render", "--style", style, "--size", "320x180", "--seed", "7")
+    assert run(capsys, *args)[0] == 0
+    assert run(capsys, *args, f"--{style}-layout", alternate)[0] == 0
+    with Image.open(here / f"wallpaper-{style}-{default}-320x180-7.png") as first:
+        with Image.open(here / f"wallpaper-{style}-{alternate}-320x180-7.png") as second:
+            spec = RenderSpec(style=style, width=320, height=180, seed=7,
+                              **{f"{style}_layout": alternate})
+            assert second.tobytes() == render(spec).tobytes()
+            assert second.tobytes() != first.tobytes()
 
 
 def test_missing_script_file_is_a_usage_error(capsys, here):

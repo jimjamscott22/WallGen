@@ -7,8 +7,10 @@ from PIL import Image
 from wallgen.engine.common import EngineError
 from wallgen.engine.ctx import Ctx
 from wallgen.engine.spec import PALETTES, SIZES, RenderSpec
+from wallgen.engine.styles.blueprint import render_blueprint
 from wallgen.engine.styles.codeblock import render_codeblock
 from wallgen.engine.styles.coderain import render_coderain
+from wallgen.engine.styles.contour import render_contour
 from wallgen.engine.styles.pcb import render_pcb
 from wallgen.engine.styles.terminal import render_terminal
 
@@ -21,6 +23,8 @@ _STYLES = {
     "coderain": render_coderain,
     "terminal": render_terminal,
     "codeblock": render_codeblock,
+    "blueprint": render_blueprint,
+    "contour": render_contour,
 }
 
 

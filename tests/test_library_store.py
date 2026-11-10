@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from PIL import Image
@@ -49,6 +50,17 @@ def test_favorites_search_and_pagination_survive_restart(store):
     assert reopened.list(limit=1)[0].id != reopened.list(limit=1, offset=1)[0].id
     reopened.favorite(first.stem, False)
     assert not reopened.list(favorites_only=True)
+
+
+def test_legacy_library_spec_uses_layout_defaults(store):
+    path, spec = save(store, style="terminal")
+    with sqlite3.connect(store.db_path) as connection:
+        row = connection.execute("SELECT spec_json FROM wallpaper").fetchone()
+        legacy = json.loads(row[0])
+        del legacy["blueprint_layout"]
+        del legacy["contour_layout"]
+        connection.execute("UPDATE wallpaper SET spec_json = ?", (json.dumps(legacy),))
+    assert LibraryStore(store.root).get(path.stem).spec == spec
 
 
 def test_delete_removes_only_selected_render(store):

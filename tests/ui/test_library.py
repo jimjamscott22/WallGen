@@ -25,10 +25,12 @@ def add(window, spec=None):
     return path.stem, spec
 
 
-def test_double_click_load_restores_all_controls_and_saved_image(qtbot, window):
-    spec = RenderSpec(style="codeblock", palette="ice", width=640, height=360, seed=123,
+@pytest.mark.parametrize("style", ["codeblock", "blueprint", "contour"])
+def test_double_click_load_restores_all_controls_and_saved_image(qtbot, window, style):
+    spec = RenderSpec(style=style, palette="ice", width=640, height=360, seed=123,
                       quiet_zone="none", user="me@host", code_text="hello", gutter=False,
-                      cursor=False, caption="test", mark="hidden PCB text")
+                      cursor=False, caption="test", mark="hidden PCB text",
+                      blueprint_layout="offset", contour_layout="island")
     item_id, _ = add(window, spec)
     window.show()
     panel = window.library_panel

@@ -5,8 +5,10 @@ from typing import Literal
 
 from wallgen.engine.common import C
 
-Style = Literal["pcb", "coderain", "terminal", "codeblock"]
+Style = Literal["pcb", "coderain", "terminal", "codeblock", "blueprint", "contour"]
 QuietZone = Literal["left", "right", "top", "bottom", "none"]
+BlueprintLayout = Literal["centered", "offset"]
+ContourLayout = Literal["ridge", "island"]
 
 SIZES: dict[str, tuple[int, int]] = {
     # 16:9
@@ -76,6 +78,8 @@ class RenderSpec:
     glyphs: Literal["mixed", "ascii"] = "mixed"
     gutter: bool = True
     cursor: bool = True
+    blueprint_layout: BlueprintLayout = "centered"
+    contour_layout: ContourLayout = "ridge"
 
     def at(self, w: int, h: int) -> "RenderSpec":
         return replace(self, width=w, height=h)

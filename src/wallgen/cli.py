@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import get_args
 
 from wallgen.engine import PALETTES, SIZES, EngineError, RenderSpec, render
-from wallgen.engine.spec import QuietZone, Style
+from wallgen.engine.spec import BlueprintLayout, ContourLayout, QuietZone, Style
 
 COMMANDS = ("render", "list")
 MAX_SEED = 2**31 - 1  # the GUI's seed field accepts the same range
@@ -110,6 +110,14 @@ def build_parser() -> argparse.ArgumentParser:
     code.add_argument("--caption", default="", help="small line under the code")
     code.add_argument("--no-gutter", dest="gutter", action="store_false", help="hide line numbers")
     code.add_argument("--no-cursor", dest="cursor", action="store_false", help="hide the cursor block")
+
+    defaults = RenderSpec()
+    blueprint = r.add_argument_group("blueprint")
+    blueprint.add_argument("--blueprint-layout", choices=get_args(BlueprintLayout),
+                           default=defaults.blueprint_layout)
+    contour = r.add_argument_group("contour")
+    contour.add_argument("--contour-layout", choices=get_args(ContourLayout),
+                         default=defaults.contour_layout)
     return parser
 
 
@@ -124,6 +132,7 @@ def spec_from_args(args: argparse.Namespace) -> RenderSpec:
         user=args.user, title=args.title, session_text=args.script or "",
         code_text=args.code or "", caption=args.caption,
         glyphs=args.glyphs, gutter=args.gutter, cursor=args.cursor,
+        blueprint_layout=args.blueprint_layout, contour_layout=args.contour_layout,
     )
 
 
@@ -161,7 +170,12 @@ def _progress_printer():
 
 def _render(args: argparse.Namespace) -> int:
     spec = spec_from_args(args)
-    out = args.out or Path(f"wallpaper-{spec.style}-{spec.width}x{spec.height}-{spec.seed}.png")
+    name = spec.style
+    if spec.style == "blueprint":
+        name = f"{name}-{spec.blueprint_layout}"
+    elif spec.style == "contour":
+        name = f"{name}-{spec.contour_layout}"
+    out = args.out or Path(f"wallpaper-{name}-{spec.width}x{spec.height}-{spec.seed}.png")
     show, clear = _progress_printer()
     try:
         image = render(spec, progress=show)
