@@ -107,3 +107,21 @@ def test_line_count_orders_the_amount_of_light(layout):
     few, normal, many = (image(style="contour", contour_layout=layout, contour_lines=value).mean()
                          for value in ("few", "normal", "many"))
     assert few < normal < many
+
+
+@pytest.mark.parametrize("option", [dict(rain_density="light"), dict(rain_density="heavy"),
+                                    dict(rain_foreground=False)])
+def test_each_rain_option_changes_the_image(option):
+    assert (image(style="coderain") != image(style="coderain", **option)).any()
+
+
+def test_rain_density_orders_the_amount_of_light():
+    light, normal, heavy = (image(style="coderain", rain_density=value).mean()
+                            for value in ("light", "normal", "heavy"))
+    assert light < normal < heavy
+
+
+def test_removing_foreground_streaks_leaves_the_rest_in_place():
+    default, off = image(style="coderain"), image(style="coderain", rain_foreground=False)
+    assert (off - default).max() <= 1
+    assert (default - off).max() >= 10
