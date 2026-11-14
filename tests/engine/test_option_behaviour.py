@@ -61,3 +61,34 @@ def test_subject_dimensions_switch_changes_the_image(subject):
     on = image(style="blueprint", blueprint_subject=subject)
     off = image(style="blueprint", blueprint_subject=subject, blueprint_dimensions=False)
     assert (on != off).any()
+
+
+@pytest.mark.parametrize("option", [dict(pcb_hero_chip=False), dict(pcb_small_chips=False),
+                                    dict(pcb_traces="sparse"), dict(pcb_traces="dense"),
+                                    dict(pcb_components=False)])
+def test_each_pcb_option_changes_the_image(option):
+    assert (image(style="pcb") != image(style="pcb", **option)).any()
+
+
+def test_trace_density_orders_the_amount_of_light():
+    sparse, normal, dense = (image(style="pcb", pcb_traces=value).mean()
+                             for value in ("sparse", "normal", "dense"))
+    assert sparse < normal < dense
+
+
+def test_removing_components_leaves_the_traces_in_place():
+    default, off = image(style="pcb"), image(style="pcb", pcb_components=False)
+    assert (off - default).max() <= 24  # nothing new appears: no trace moved
+    assert (default - off).max() >= 40  # something bright was removed
+
+
+def test_hero_chip_off_ignores_its_label_and_keeps_the_wordmark():
+    marked = dict(style="pcb", pcb_hero_chip=False, mark="WALLGEN", chip_label="WG-1")
+    assert (image(**marked) == image(**{**marked, "chip_label": ""})).all()
+    assert (image(**marked) != image(**{**marked, "mark": ""})).any()
+
+
+def test_pcb_with_everything_off_is_not_blank():
+    bare = image(style="pcb", pcb_hero_chip=False, pcb_small_chips=False,
+                 pcb_traces="sparse", pcb_components=False)
+    assert bare.max() > 120
