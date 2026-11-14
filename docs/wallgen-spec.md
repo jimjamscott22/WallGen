@@ -34,6 +34,9 @@ still there tomorrow, re-renderable at any size.
   deciding whether you like the app.
 - Cloud anything, accounts, sync
 - An in-app style editor. Styles are code; adding one is a Python function.
+  Per-style options and a built-in set of Blueprint subjects are in scope (see
+  `docs/superpowers/specs/2026-11-14-style-options-design.md`); free placement
+  and mixing parts across styles are not.
 - Cross-platform. `win32` only; the platform layer is isolated so that's a
   one-file problem later, not an architecture problem.
 

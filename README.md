@@ -34,6 +34,13 @@ the interesting part end up off-screen.
 | `coderain` | Four depth planes of falling katakana and ASCII, with the foreground plane thrown out of focus and random cell dropouts so columns flicker instead of reading as solid strings. |
 | `terminal` | A glowing shell session in a window. The session text is a small plain-text DSL, so it says whatever you want. |
 | `codeblock` | A snippet as large syntax-highlighted typography, with an editor gutter and a cursor block. |
+| `blueprint` | A dimensioned engineering drawing on a drafting grid. Pick the subject from a built-in set: flange, gear, bearing or bracket. |
+| `contour` | Topographic contour lines, as a ridge or an island. |
+
+Most styles have options of their own in the panel on the right: choose the Blueprint
+subject, switch parts on and off (the PCB's chips and components, the Blueprint's grid,
+dimensions and labels, the code rain's foreground streaks), or set how much there is
+(PCB traces, contour lines, rain density). Every option is saved with the wallpaper.
 
 Six palettes — `cyber`, `amber`, `matrix`, `violet`, `ice`, `crimson` — and every style
 picks all of them up.
@@ -139,7 +146,9 @@ uv run wallgen render --style pcb --size 3440x1440 --palette amber \
     --mark "J A M I E" --chip-label "BEAST-01" --seed 771402 --out wall.png
 
 uv run wallgen render --style terminal --script session.txt --user "me@desktop"
-uv run wallgen list          # every size preset, palette, and style
+uv run wallgen render --style blueprint --blueprint-subject gear --no-blueprint-grid
+uv run wallgen render --style pcb --traces dense --no-components
+uv run wallgen list          # every size preset, palette, style, and Blueprint subject
 uv run wallgen render --help # every option, grouped by style
 ```
 
