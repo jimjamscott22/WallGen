@@ -31,3 +31,12 @@ def test_sizes_and_palettes_cover_the_known_set():
             "primary", "primary_dim", "accent", "accent_dim",
             "spark", "rare", "ok", "warn", "bg",
         }
+
+
+def test_style_option_defaults_keep_todays_look():
+    spec = RenderSpec()
+    assert spec.blueprint_subject == "flange"
+    assert spec.pcb_traces == spec.contour_lines == spec.rain_density == "normal"
+    assert all(getattr(spec, name) is True for name in (
+        "blueprint_grid", "blueprint_dimensions", "blueprint_labels", "pcb_hero_chip",
+        "pcb_small_chips", "pcb_components", "contour_accent", "rain_foreground"))

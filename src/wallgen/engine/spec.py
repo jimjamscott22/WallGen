@@ -9,6 +9,10 @@ Style = Literal["pcb", "coderain", "terminal", "codeblock", "blueprint", "contou
 QuietZone = Literal["left", "right", "top", "bottom", "none"]
 BlueprintLayout = Literal["centered", "offset"]
 ContourLayout = Literal["ridge", "island"]
+BlueprintSubject = Literal["flange", "gear", "bearing", "bracket"]
+TraceDensity = Literal["sparse", "normal", "dense"]
+ContourLines = Literal["few", "normal", "many"]
+RainDensity = Literal["light", "normal", "heavy"]
 
 SIZES: dict[str, tuple[int, int]] = {
     # 16:9
@@ -80,6 +84,19 @@ class RenderSpec:
     cursor: bool = True
     blueprint_layout: BlueprintLayout = "centered"
     contour_layout: ContourLayout = "ridge"
+    # Style options: every default reproduces the look from before they existed.
+    blueprint_subject: BlueprintSubject = "flange"
+    blueprint_grid: bool = True
+    blueprint_dimensions: bool = True
+    blueprint_labels: bool = True
+    pcb_hero_chip: bool = True
+    pcb_small_chips: bool = True
+    pcb_traces: TraceDensity = "normal"
+    pcb_components: bool = True
+    contour_lines: ContourLines = "normal"
+    contour_accent: bool = True
+    rain_density: RainDensity = "normal"
+    rain_foreground: bool = True
 
     def at(self, w: int, h: int) -> "RenderSpec":
         return replace(self, width=w, height=h)

@@ -63,6 +63,24 @@ def test_legacy_library_spec_uses_layout_defaults(store):
     assert LibraryStore(store.root).get(path.stem).spec == spec
 
 
+STYLE_OPTION_KEYS = (
+    "blueprint_subject", "blueprint_grid", "blueprint_dimensions", "blueprint_labels",
+    "pcb_hero_chip", "pcb_small_chips", "pcb_traces", "pcb_components",
+    "contour_lines", "contour_accent", "rain_density", "rain_foreground",
+)
+
+
+def test_library_spec_saved_before_style_options_still_loads(store):
+    path, spec = save(store, style="blueprint")
+    with sqlite3.connect(store.db_path) as connection:
+        row = connection.execute("SELECT spec_json FROM wallpaper").fetchone()
+        legacy = json.loads(row[0])
+        for key in STYLE_OPTION_KEYS:
+            del legacy[key]
+        connection.execute("UPDATE wallpaper SET spec_json = ?", (json.dumps(legacy),))
+    assert LibraryStore(store.root).get(path.stem).spec == spec
+
+
 def test_delete_removes_only_selected_render(store):
     first, _ = save(store, seed=1)
     second, _ = save(store, seed=2)
