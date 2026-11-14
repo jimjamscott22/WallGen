@@ -165,3 +165,9 @@ def test_set_failure_shows_error_and_allows_retry(window, monkeypatch, tmp_path)
     window.set_all_button.click()
     assert "access denied" in window.render_status.text()
     assert window.set_all_button.isEnabled()
+
+
+def test_the_tallest_options_page_fits_the_default_window(window):
+    window.resize(1440, 900)
+    window.style_panel.set_style("pcb")
+    assert window.minimumSizeHint().height() <= 900
