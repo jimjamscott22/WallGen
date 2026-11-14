@@ -109,13 +109,19 @@ class LibraryStore:
 
     def list(self, search: str = "", favorites_only: bool = False,
              limit: int = 100, offset: int = 0) -> list[Wallpaper]:
-        # Literal substring search, including custom text and seed in the full spec.
+        # Literal substring search over the spec's text and number values (style,
+        # palette, seed, custom text, option choices). Setting names and on/off
+        # switches are left out, or "pcb" would match every row via "pcb_traces".
+        term = search.strip()
         with self._connection() as connection:
             rows = connection.execute(
                 """SELECT * FROM wallpaper WHERE (? = 0 OR favorite = 1)
-                AND instr(lower(spec_json), lower(?)) > 0
+                AND (? = '' OR EXISTS (
+                    SELECT 1 FROM json_each(wallpaper.spec_json) AS entry
+                    WHERE entry.type IN ('text', 'integer')
+                    AND instr(lower(CAST(entry.value AS TEXT)), lower(?)) > 0))
                 ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?""",
-                (int(favorites_only), search.strip(), limit, offset),
+                (int(favorites_only), term, term, limit, offset),
             ).fetchall()
         return [self._item(row) for row in rows]
 

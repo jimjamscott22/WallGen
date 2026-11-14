@@ -52,6 +52,18 @@ def test_favorites_search_and_pagination_survive_restart(store):
     assert not reopened.list(favorites_only=True)
 
 
+def test_search_matches_setting_values_not_setting_names(store):
+    pcb, _ = save(store, seed=1, style="pcb")
+    gear, _ = save(store, seed=2, style="blueprint", blueprint_subject="gear")
+    contour, _ = save(store, seed=771402, style="contour")
+    assert [x.id for x in store.list("pcb")] == [pcb.stem]
+    assert [x.id for x in store.list("gear")] == [gear.stem]
+    assert [x.id for x in store.list("771402")] == [contour.stem]  # seeds stay searchable
+    assert store.list("rain") == []  # only part of a setting name (rain_density)
+    assert store.list("true") == []  # switches are not searchable text
+    assert len(store.list("")) == 3
+
+
 def test_legacy_library_spec_uses_layout_defaults(store):
     path, spec = save(store, style="terminal")
     with sqlite3.connect(store.db_path) as connection:
