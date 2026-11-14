@@ -92,3 +92,18 @@ def test_pcb_with_everything_off_is_not_blank():
     bare = image(style="pcb", pcb_hero_chip=False, pcb_small_chips=False,
                  pcb_traces="sparse", pcb_components=False)
     assert bare.max() > 120
+
+
+@pytest.mark.parametrize("layout", ["ridge", "island"])
+@pytest.mark.parametrize("option", [dict(contour_lines="few"), dict(contour_lines="many"),
+                                    dict(contour_accent=False)])
+def test_each_contour_option_changes_the_image(layout, option):
+    base = dict(style="contour", contour_layout=layout)
+    assert (image(**base) != image(**base, **option)).any()
+
+
+@pytest.mark.parametrize("layout", ["ridge", "island"])
+def test_line_count_orders_the_amount_of_light(layout):
+    few, normal, many = (image(style="contour", contour_layout=layout, contour_lines=value).mean()
+                         for value in ("few", "normal", "many"))
+    assert few < normal < many
