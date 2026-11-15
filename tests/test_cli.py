@@ -9,7 +9,7 @@ from PIL import Image
 import wallgen.__main__ as wallgen_main
 from wallgen import cli
 from wallgen.engine import PALETTES, SIZES, EngineError, RenderSpec, render
-from wallgen.engine.spec import Style
+from wallgen.engine.spec import BlueprintSubject, Style
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_list_prints_every_size_palette_and_style(capsys):
     for key, (w, h) in SIZES.items():
         assert f"{key}" in out and f"{w}x{h}" in out
     assert all(palette in out for palette in PALETTES)
-    assert out.split("STYLES\n", 1)[1].split() == list(get_args(Style))
+    assert out.split("STYLES\n", 1)[1].split("\n\n", 1)[0].split() == list(get_args(Style))
 
 
 def test_every_flag_reaches_the_spec(tmp_path):
@@ -206,3 +206,27 @@ def test_a_code_file_of_only_line_breaks_renders_the_sample(capsys, here):
     expected = render(RenderSpec(style="codeblock", width=320, height=180, seed=2))
     with Image.open(here / "blank.png") as saved:
         assert saved.tobytes() == expected.tobytes()
+
+
+def test_every_style_option_flag_reaches_the_spec():
+    args = cli.build_parser().parse_args([
+        "render", "--seed", "1", "--blueprint-subject", "gear", "--no-blueprint-grid",
+        "--no-blueprint-dimensions", "--no-blueprint-labels", "--no-hero-chip", "--no-small-chips",
+        "--traces", "dense", "--no-components", "--contour-lines", "few", "--no-contour-accent",
+        "--rain-density", "heavy", "--no-rain-foreground"])
+    assert cli.spec_from_args(args) == RenderSpec(
+        seed=1, blueprint_subject="gear", blueprint_grid=False, blueprint_dimensions=False,
+        blueprint_labels=False, pcb_hero_chip=False, pcb_small_chips=False, pcb_traces="dense",
+        pcb_components=False, contour_lines="few", contour_accent=False,
+        rain_density="heavy", rain_foreground=False)
+
+
+def test_a_non_default_subject_is_in_the_default_filename(capsys, here):
+    args = ("render", "--style", "blueprint", "--size", "320x180", "--seed", "7")
+    assert run(capsys, *args, "--blueprint-subject", "gear")[0] == 0
+    assert (here / "wallpaper-blueprint-gear-centered-320x180-7.png").is_file()
+
+
+def test_list_prints_the_blueprint_subjects(capsys):
+    _, out, _ = run(capsys, "list")
+    assert out.split("BLUEPRINT SUBJECTS\n", 1)[1].split() == list(get_args(BlueprintSubject))

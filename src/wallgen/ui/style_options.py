@@ -16,7 +16,14 @@ from PySide6.QtWidgets import (
 )
 
 from wallgen.engine import RenderSpec
-from wallgen.engine.spec import BlueprintLayout, ContourLayout
+from wallgen.engine.spec import (
+    BlueprintLayout,
+    BlueprintSubject,
+    ContourLayout,
+    ContourLines,
+    RainDensity,
+    TraceDensity,
+)
 
 STYLE_ORDER = ["pcb", "coderain", "terminal", "codeblock", "blueprint", "contour"]
 
@@ -31,6 +38,8 @@ STYLE_LABELS = {
 
 _DEFAULTS = RenderSpec()
 _TEXT_BOX_HEIGHT = 120
+_ROW_GAP = 16
+_CHECK_GAP = 8
 
 
 @dataclass(frozen=True)
@@ -52,9 +61,18 @@ FIELDS_BY_STYLE: dict[str, list[Field]] = {
         Field("mark", "Mark", "line", placeholder="e.g. J A M I E"),
         Field("submark", "Submark", "line", placeholder="e.g. BUILD 2560 x 1440"),
         Field("chip_label", "Chip label", "line", placeholder="e.g. JMI-1440"),
+        Field("pcb_traces", "Traces", "choice", choices=get_args(TraceDensity),
+              default=_DEFAULTS.pcb_traces),
+        Field("pcb_hero_chip", "Hero chip", "check", default=_DEFAULTS.pcb_hero_chip),
+        Field("pcb_small_chips", "Small chips", "check", default=_DEFAULTS.pcb_small_chips),
+        Field("pcb_components", "Components", "check", default=_DEFAULTS.pcb_components),
     ],
     "coderain": [
         Field("glyphs", "Glyphs", "choice", choices=("mixed", "ascii"), default=_DEFAULTS.glyphs),
+        Field("rain_density", "Density", "choice", choices=get_args(RainDensity),
+              default=_DEFAULTS.rain_density),
+        Field("rain_foreground", "Foreground streaks", "check",
+              default=_DEFAULTS.rain_foreground),
     ],
     "terminal": [
         Field("user", "User", "line", placeholder=_DEFAULTS.user, default=_DEFAULTS.user),
@@ -68,12 +86,21 @@ FIELDS_BY_STYLE: dict[str, list[Field]] = {
         Field("cursor", "Cursor", "check", default=_DEFAULTS.cursor),
     ],
     "blueprint": [
+        Field("blueprint_subject", "Subject", "choice", choices=get_args(BlueprintSubject),
+              default=_DEFAULTS.blueprint_subject),
         Field("blueprint_layout", "Layout", "choice", choices=get_args(BlueprintLayout),
               default=_DEFAULTS.blueprint_layout),
+        Field("blueprint_grid", "Grid", "check", default=_DEFAULTS.blueprint_grid),
+        Field("blueprint_dimensions", "Dimensions", "check",
+              default=_DEFAULTS.blueprint_dimensions),
+        Field("blueprint_labels", "Labels", "check", default=_DEFAULTS.blueprint_labels),
     ],
     "contour": [
         Field("contour_layout", "Layout", "choice", choices=get_args(ContourLayout),
               default=_DEFAULTS.contour_layout),
+        Field("contour_lines", "Lines", "choice", choices=get_args(ContourLines),
+              default=_DEFAULTS.contour_lines),
+        Field("contour_accent", "Accent line", "check", default=_DEFAULTS.contour_accent),
     ],
 }
 
@@ -147,11 +174,18 @@ class StyleOptionsPanel(QFrame):
             page = QWidget()
             page_layout = QVBoxLayout(page)
             page_layout.setContentsMargins(0, 0, 0, 0)
-            page_layout.setSpacing(16)
+            page_layout.setSpacing(0)
+            previous = None
             for field in FIELDS_BY_STYLE[style]:
                 editor = _make_editor(field)
                 self._editors[field.key] = (field, editor)
+                if previous is not None:
+                    # A run of checkboxes reads as one group, and the tighter
+                    # gap keeps the tallest page inside the default window.
+                    grouped = field.kind == previous.kind == "check"
+                    page_layout.addSpacing(_CHECK_GAP if grouped else _ROW_GAP)
                 page_layout.addWidget(_field_row(field, editor))
+                previous = field
             page_layout.addStretch(1)
             self._stack.addWidget(page)
             self._pages[style] = page

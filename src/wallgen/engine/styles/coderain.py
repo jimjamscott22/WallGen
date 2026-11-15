@@ -56,12 +56,15 @@ def render_coderain(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
     # columns scale with how many glyph-widths fit across the canvas, and tails
     # with how many glyph-heights fit down it, so density holds at any aspect
     cw = max(0.35, (W / 2560.0) / ctx.U)
+    cw *= {"light": 0.55, "normal": 1.0, "heavy": 1.5}[spec.rain_density]
     tl = max(0.5, (H / 1440.0) / ctx.U)
     T = lambda lo, hi: (max(3, int(lo * tl)), max(5, int(hi * tl)))
     far  = plane(ctx.u(15), int(150 * cw), T(14, 40), 0.34, 0.22)
     mid  = plane(ctx.u(26), int(105 * cw), T(10, 30), 0.88, 0.62)
     hero = plane(ctx.u(30), int(26 * cw),  T(6, 20),  1.55, 1.00)
-    near = plane(ctx.u(58), int(14 * cw),  T(4, 12),  0.70, 0.45, jitter=ctx.u(1.5))
+    # the nearest plane is built last, so leaving it out moves nothing else
+    near = (plane(ctx.u(58), int(14 * cw), T(4, 12), 0.70, 0.45, jitter=ctx.u(1.5))
+            if spec.rain_foreground else None)
     progress(0.6, "layering depth planes")
 
     arr = lambda im: np.asarray(im, np.float32)
@@ -78,8 +81,9 @@ def render_coderain(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
     out += g(mid, 3, 0.50) + g(mid, 12, 0.32) + g(mid, 44, 0.20)
     out += arr(hero) * 1.0
     out += g(hero, 4, 0.75) + g(hero, 16, 0.48) + g(hero, 58, 0.30)
-    out += arr(near.filter(ImageFilter.GaussianBlur(ctx.u(7)))) * 0.85
-    out += g(near, 26, 0.30)
+    if near is not None:
+        out += arr(near.filter(ImageFilter.GaussianBlur(ctx.u(7)))) * 0.85
+        out += g(near, 26, 0.30)
     out *= (1.0 - 0.055 * (np.sin(y * np.pi) * 0.5 + 0.5))[..., None]
     progress(0.9, "compositing")
     return finish(ctx, out, 0.50)

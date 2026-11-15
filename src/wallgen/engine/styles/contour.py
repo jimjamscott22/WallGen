@@ -49,18 +49,23 @@ def render_contour(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
     island = spec.contour_layout == "island"
     progress(0.18, "shaping terrain")
 
-    for index in range(31):
+    # 6k+1 lines: the terrain keeps its shape and only the spacing changes, with
+    # a major line every k-th and the accent line where it sits at k=5 (31 lines).
+    k = {"few": 3, "normal": 5, "many": 7}[spec.contour_lines]
+    accent_index = k if island else 3 * k
+    for index in range(6 * k + 1):
         if island:
-            points = _island_points(0.08 + 0.92 * index / 30, phase, second_phase,
+            points = _island_points(0.08 + 0.92 * index / (6 * k), phase, second_phase,
                                     center, stretch)
-            prominence = 1 - index / 42
+            prominence = 1 - (index * 5 / k) / 42
         else:
-            level = (index - 15) / 15
+            level = (index - 3 * k) / (3 * k)
             points = _ridge_points(level, phase, direction, ctx.portrait)
             prominence = 1 - 0.55 * abs(level)
 
-        major = index % 5 == 0
-        color = palette["accent"] if index == (5 if island else 15) else palette["primary"]
+        major = index % k == 0
+        accent = spec.contour_accent and index == accent_index
+        color = palette["accent"] if accent else palette["primary"]
         strength = prominence * (0.82 if major else 0.43)
         weight = max(1, round(ctx.s(ctx.u(3.1 if major else 1.6))))
         for (x1, y1), (x2, y2) in zip(points, points[1:]):

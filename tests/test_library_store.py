@@ -1,10 +1,12 @@
 import json
 import sqlite3
+from typing import get_args
 
 from PIL import Image
 import pytest
 
 from wallgen.engine import RenderSpec
+from wallgen.engine.spec import STYLE_FIELDS, Style
 from wallgen.store.db import LibraryStore
 
 
@@ -39,7 +41,7 @@ def test_restart_preserves_all_spec_fields_and_thumbnail(store):
 
 
 def test_favorites_search_and_pagination_survive_restart(store):
-    first, _ = save(store, seed=1, caption="a literal % and _")
+    first, _ = save(store, seed=1, style="codeblock", caption="a literal % and _")
     second, _ = save(store, seed=2, palette="amber")
     store.favorite(first.stem, True)
     reopened = LibraryStore(store.root)
@@ -52,6 +54,30 @@ def test_favorites_search_and_pagination_survive_restart(store):
     assert not reopened.list(favorites_only=True)
 
 
+def test_search_matches_setting_values_not_setting_names(store):
+    pcb, _ = save(store, seed=1, style="pcb")
+    gear, _ = save(store, seed=2, style="blueprint", blueprint_subject="gear")
+    contour, _ = save(store, seed=771402, style="contour")
+    assert [x.id for x in store.list("pcb")] == [pcb.stem]
+    assert [x.id for x in store.list("gear")] == [gear.stem]
+    assert [x.id for x in store.list("771402")] == [contour.stem]  # seeds stay searchable
+    assert store.list("rain") == []  # only part of a setting name (rain_density)
+    assert store.list("true") == []  # switches are not searchable text
+    assert len(store.list("")) == 3
+
+
+def test_search_ignores_settings_the_wallpapers_style_does_not_use(store):
+    by_style = {style: save(store, seed=index, style=style)[0].stem
+                for index, style in enumerate(get_args(Style))}
+    assert [x.id for x in store.list("flange")] == [by_style["blueprint"]]
+    assert [x.id for x in store.list("localhost")] == [by_style["terminal"]]
+    assert [x.id for x in store.list("ridge")] == [by_style["contour"]]
+    # A subject left selected on the hidden Blueprint page is not part of a PCB design.
+    save(store, seed=99, style="pcb", blueprint_subject="gear")
+    assert store.list("gear") == []
+    assert len(store.list("cyber")) == 7  # palette, size, seed and style stay common
+
+
 def test_legacy_library_spec_uses_layout_defaults(store):
     path, spec = save(store, style="terminal")
     with sqlite3.connect(store.db_path) as connection:
@@ -59,6 +85,24 @@ def test_legacy_library_spec_uses_layout_defaults(store):
         legacy = json.loads(row[0])
         del legacy["blueprint_layout"]
         del legacy["contour_layout"]
+        connection.execute("UPDATE wallpaper SET spec_json = ?", (json.dumps(legacy),))
+    assert LibraryStore(store.root).get(path.stem).spec == spec
+
+
+STYLE_OPTION_KEYS = (
+    "blueprint_subject", "blueprint_grid", "blueprint_dimensions", "blueprint_labels",
+    "pcb_hero_chip", "pcb_small_chips", "pcb_traces", "pcb_components",
+    "contour_lines", "contour_accent", "rain_density", "rain_foreground",
+)
+
+
+def test_library_spec_saved_before_style_options_still_loads(store):
+    path, spec = save(store, style="blueprint")
+    with sqlite3.connect(store.db_path) as connection:
+        row = connection.execute("SELECT spec_json FROM wallpaper").fetchone()
+        legacy = json.loads(row[0])
+        for key in STYLE_OPTION_KEYS:
+            del legacy[key]
         connection.execute("UPDATE wallpaper SET spec_json = ?", (json.dumps(legacy),))
     assert LibraryStore(store.root).get(path.stem).spec == spec
 

@@ -94,8 +94,9 @@ def render_pcb(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
     hy = 0.455 if ctx.zone != "top" else 0.60
     HCX, HCY = W * hx, H * hy
     hero = ctx.u(400) * (1.0 if not ctx.portrait else 0.85)
-    chip(HCX, HCY, hero, hero, 13, p["primary"], p["primary"], label=spec.chip_label)
-    for fx, fy, fw, fh, pins, col, gl, four in [
+    if spec.pcb_hero_chip:
+        chip(HCX, HCY, hero, hero, 13, p["primary"], p["primary"], label=spec.chip_label)
+    for fx, fy, fw, fh, pins, col, gl, four in [] if not spec.pcb_small_chips else [
         (0.885, 0.735, 210, 132, 7, p["accent"], p["spark"], False),
         (0.360, 0.780, 176, 112, 6, p["accent"], p["accent"], False),
         (0.845, 0.180, 150, 150, 6, p["primary"], p["primary"], True),
@@ -141,19 +142,22 @@ def render_pcb(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
         return placed
 
     A = ctx.area
+    # trace density scales how many traces each tier places (and may try)
+    T = {"sparse": 0.5, "normal": 1.0, "dense": 1.6}[spec.pcb_traces]
     seg = lambda lo, hi: (int(ctx.u(lo)), int(ctx.u(hi)))
-    scatter(int(34 * A), int(900 * A), (4, 9), seg(100, 250), ctx.u(13), ctx.u(3.6),
+    scatter(int(34 * A * T), int(900 * A * T), (4, 9), seg(100, 250), ctx.u(13), ctx.u(3.6),
             lambda: ((p["primary"] if ctx.rng.random() < .62 else p["accent"]),
                      ctx.rng.uniform(.70, .95)), 0.95)
-    scatter(int(120 * A), int(3000 * A), (3, 8), seg(70, 240), ctx.u(10), ctx.u(2.7),
+    scatter(int(120 * A * T), int(3000 * A * T), (3, 8), seg(70, 240), ctx.u(10), ctx.u(2.7),
             lambda: ((p["primary"] if ctx.rng.random() < .70 else p["accent"]),
                      ctx.rng.uniform(.34, .58)), 0.35)
-    scatter(int(340 * A), int(7000 * A), (2, 6), seg(40, 160), ctx.u(7), ctx.u(1.9),
+    scatter(int(340 * A * T), int(7000 * A * T), (2, 6), seg(40, 160), ctx.u(7), ctx.u(1.9),
             lambda: ((p["primary_dim"] if ctx.rng.random() < .74 else p["accent_dim"]),
                      ctx.rng.uniform(.55, .95)), 0.10)
     progress(0.5, "routing traces")
 
-    for i in range(int(26 * max(1.0, A ** 0.5))):
+    # fan-out traces start at the hero chip's edge, so they go when it does
+    for i in range(int(26 * max(1.0, A ** 0.5)) if spec.pcb_hero_chip else 0):
         ang = ctx.rng.uniform(0, math.tau)
         r0 = hero * 0.61
         pts = try_route(gen_path(HCX + math.cos(ang) * r0, HCY + math.sin(ang) * r0,
@@ -177,7 +181,8 @@ def render_pcb(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
                 return x, y
         return None
 
-    for _ in range(int(110 * A)):
+    # pads and dots are the last users of the rng: skipping them moves nothing else
+    for _ in range(int(110 * A) if spec.pcb_components else 0):
         w_, h_ = ctx.u(ctx.rng.uniform(18, 36)), ctx.u(ctx.rng.uniform(8, 13))
         if ctx.rng.random() < 0.5:
             w_, h_ = h_, w_
@@ -190,7 +195,7 @@ def render_pcb(ctx: Ctx, spec: RenderSpec, progress) -> Image.Image:
                          outline=mul(col, ctx.rng.uniform(0.9, 1.5)),
                          width=max(1, int(ctx.s(ctx.u(1.8)))))
 
-    for _ in range(int(150 * A)):
+    for _ in range(int(150 * A) if spec.pcb_components else 0):
         spot = free_spot(ctx.u(9), ctx.u(9), ctx.u(4))
         if not spot:
             continue

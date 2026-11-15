@@ -18,6 +18,9 @@ SPEC_KEYS = {
     "user", "title", "session_text",
     "code_text", "caption", "gutter", "cursor",
     "blueprint_layout", "contour_layout",
+    "blueprint_subject", "blueprint_grid", "blueprint_dimensions", "blueprint_labels",
+    "pcb_hero_chip", "pcb_small_chips", "pcb_traces", "pcb_components",
+    "contour_lines", "contour_accent", "rain_density", "rain_foreground",
 }
 
 
@@ -109,3 +112,36 @@ def test_edits_survive_switching_styles(qtbot):
     values = panel.values()
     assert values["mark"] == "HELLO"
     assert values["session_text"] == "$ ls"
+
+
+def test_style_option_editors_and_their_choices(qtbot):
+    panel = StyleOptionsPanel()
+    qtbot.addWidget(panel)
+
+    def items(key):
+        combo = panel.editor(key)
+        return [combo.itemText(i) for i in range(combo.count())], combo.currentText()
+
+    assert items("blueprint_subject") == (["flange", "gear", "bearing", "bracket"], "flange")
+    assert items("pcb_traces") == (["sparse", "normal", "dense"], "normal")
+    assert items("contour_lines") == (["few", "normal", "many"], "normal")
+    assert items("rain_density") == (["light", "normal", "heavy"], "normal")
+    for key in ("blueprint_grid", "blueprint_dimensions", "blueprint_labels", "pcb_hero_chip",
+                "pcb_small_chips", "pcb_components", "contour_accent", "rain_foreground"):
+        assert isinstance(panel.editor(key), QCheckBox) and panel.editor(key).isChecked()
+
+
+def test_loading_a_spec_restores_style_options_on_every_page(qtbot):
+    panel = StyleOptionsPanel()
+    qtbot.addWidget(panel)
+    spec = RenderSpec(style="contour", blueprint_subject="gear", blueprint_grid=False,
+                      pcb_traces="dense", pcb_hero_chip=False, contour_lines="few",
+                      contour_accent=False, rain_density="heavy", rain_foreground=False)
+    panel.load_spec(spec)
+    assert RenderSpec(style="contour", **panel.values()) == spec
+
+
+def test_panel_pages_show_exactly_the_fields_the_engine_assigns_to_each_style():
+    from wallgen.engine.spec import STYLE_FIELDS
+    assert {style: {field.key for field in page} for style, page in FIELDS_BY_STYLE.items()} == {
+        style: set(names) for style, names in STYLE_FIELDS.items()}

@@ -9,6 +9,10 @@ Style = Literal["pcb", "coderain", "terminal", "codeblock", "blueprint", "contou
 QuietZone = Literal["left", "right", "top", "bottom", "none"]
 BlueprintLayout = Literal["centered", "offset"]
 ContourLayout = Literal["ridge", "island"]
+BlueprintSubject = Literal["flange", "gear", "bearing", "bracket"]
+TraceDensity = Literal["sparse", "normal", "dense"]
+ContourLines = Literal["few", "normal", "many"]
+RainDensity = Literal["light", "normal", "heavy"]
 
 SIZES: dict[str, tuple[int, int]] = {
     # 16:9
@@ -80,6 +84,36 @@ class RenderSpec:
     cursor: bool = True
     blueprint_layout: BlueprintLayout = "centered"
     contour_layout: ContourLayout = "ridge"
+    # Style options: every default reproduces the look from before they existed.
+    blueprint_subject: BlueprintSubject = "flange"
+    blueprint_grid: bool = True
+    blueprint_dimensions: bool = True
+    blueprint_labels: bool = True
+    pcb_hero_chip: bool = True
+    pcb_small_chips: bool = True
+    pcb_traces: TraceDensity = "normal"
+    pcb_components: bool = True
+    contour_lines: ContourLines = "normal"
+    contour_accent: bool = True
+    rain_density: RainDensity = "normal"
+    rain_foreground: bool = True
 
     def at(self, w: int, h: int) -> "RenderSpec":
         return replace(self, width=w, height=h)
+
+
+# Which settings shape which wallpaper. Every RenderSpec field is either common
+# to all styles or owned by exactly one; a spec still carries the other styles'
+# fields (the panel keeps them across style switches), but they do not affect
+# the image. The options panel and the library search both follow this map.
+COMMON_FIELDS: tuple[str, ...] = ("style", "width", "height", "palette", "seed", "quiet_zone")
+STYLE_FIELDS: dict[str, tuple[str, ...]] = {
+    "pcb": ("mark", "submark", "chip_label", "pcb_hero_chip", "pcb_small_chips",
+            "pcb_traces", "pcb_components"),
+    "coderain": ("glyphs", "rain_density", "rain_foreground"),
+    "terminal": ("user", "title", "session_text"),
+    "codeblock": ("code_text", "caption", "gutter", "cursor"),
+    "blueprint": ("blueprint_layout", "blueprint_subject", "blueprint_grid",
+                  "blueprint_dimensions", "blueprint_labels"),
+    "contour": ("contour_layout", "contour_lines", "contour_accent"),
+}

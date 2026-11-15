@@ -1,4 +1,7 @@
-from wallgen.engine.spec import PALETTES, SIZES, RenderSpec
+from dataclasses import fields
+from typing import get_args
+
+from wallgen.engine.spec import COMMON_FIELDS, PALETTES, SIZES, STYLE_FIELDS, RenderSpec, Style
 
 
 def test_render_spec_defaults():
@@ -31,3 +34,18 @@ def test_sizes_and_palettes_cover_the_known_set():
             "primary", "primary_dim", "accent", "accent_dim",
             "spark", "rare", "ok", "warn", "bg",
         }
+
+
+def test_style_option_defaults_keep_todays_look():
+    spec = RenderSpec()
+    assert spec.blueprint_subject == "flange"
+    assert spec.pcb_traces == spec.contour_lines == spec.rain_density == "normal"
+    assert all(getattr(spec, name) is True for name in (
+        "blueprint_grid", "blueprint_dimensions", "blueprint_labels", "pcb_hero_chip",
+        "pcb_small_chips", "pcb_components", "contour_accent", "rain_foreground"))
+
+
+def test_every_spec_field_is_common_or_belongs_to_exactly_one_style():
+    assert set(STYLE_FIELDS) == set(get_args(Style))
+    owned = [name for names in STYLE_FIELDS.values() for name in names]
+    assert sorted([*COMMON_FIELDS, *owned]) == sorted(field.name for field in fields(RenderSpec))
