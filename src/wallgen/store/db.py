@@ -12,6 +12,7 @@ import sqlite3
 from PIL import Image
 
 from wallgen.engine import RenderSpec
+from wallgen.engine.spec import COMMON_FIELDS, STYLE_FIELDS
 from wallgen.store.paths import library_dir, save_render
 
 
@@ -109,19 +110,25 @@ class LibraryStore:
 
     def list(self, search: str = "", favorites_only: bool = False,
              limit: int = 100, offset: int = 0) -> list[Wallpaper]:
-        # Literal substring search over the spec's text and number values (style,
-        # palette, seed, custom text, option choices). Setting names and on/off
-        # switches are left out, or "pcb" would match every row via "pcb_traces".
+        # Literal substring search over the text and number values that shape the
+        # wallpaper: the common settings plus those its own style uses. Setting
+        # names, on/off switches and other styles' settings are left out, or
+        # "pcb" and "flange" would match nearly every row.
         term = search.strip()
+        owned = " ".join(
+            f"OR (wallpaper.style = ? AND entry.key IN ({', '.join('?' * len(names))}))"
+            for names in STYLE_FIELDS.values())
+        owned_values = [value for style, names in STYLE_FIELDS.items() for value in (style, *names)]
         with self._connection() as connection:
             rows = connection.execute(
-                """SELECT * FROM wallpaper WHERE (? = 0 OR favorite = 1)
+                f"""SELECT * FROM wallpaper WHERE (? = 0 OR favorite = 1)
                 AND (? = '' OR EXISTS (
                     SELECT 1 FROM json_each(wallpaper.spec_json) AS entry
                     WHERE entry.type IN ('text', 'integer')
-                    AND instr(lower(CAST(entry.value AS TEXT)), lower(?)) > 0))
+                    AND instr(lower(CAST(entry.value AS TEXT)), lower(?)) > 0
+                    AND (entry.key IN ({', '.join('?' * len(COMMON_FIELDS))}) {owned})))
                 ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?""",
-                (int(favorites_only), term, term, limit, offset),
+                (int(favorites_only), term, term, *COMMON_FIELDS, *owned_values, limit, offset),
             ).fetchall()
         return [self._item(row) for row in rows]
 

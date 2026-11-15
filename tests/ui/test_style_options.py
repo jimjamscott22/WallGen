@@ -139,3 +139,9 @@ def test_loading_a_spec_restores_style_options_on_every_page(qtbot):
                       contour_accent=False, rain_density="heavy", rain_foreground=False)
     panel.load_spec(spec)
     assert RenderSpec(style="contour", **panel.values()) == spec
+
+
+def test_panel_pages_show_exactly_the_fields_the_engine_assigns_to_each_style():
+    from wallgen.engine.spec import STYLE_FIELDS
+    assert {style: {field.key for field in page} for style, page in FIELDS_BY_STYLE.items()} == {
+        style: set(names) for style, names in STYLE_FIELDS.items()}
